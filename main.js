@@ -22,14 +22,6 @@ wss.on('connection', function connection(ws) {
 				client.send(data, { binary: true });
 			  }
 			});
-		}else{
-			wss.clients.forEach(function each(client) {
-			  if (client == ws && client.readyState === WebSocket.OPEN) {
-				client.send('Completed', { binary: false });
-			  }
-			});
-			console.log('received: %s', data);
-			console.log('isNotBinary!');
 		}
 	});
   

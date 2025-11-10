@@ -1,6 +1,6 @@
 importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js');
 
-const maxAge = 30, baseName = "appBase", 
+const maxAge = 30, baseName = "appBase", wsUri = "ws://" + self.location.host,
 objectStores = 
     {
         syncServers : "syncServers",
@@ -214,36 +214,35 @@ function verifyMSG(publicKey, msg, sig){
     return key.verify(hashMSG, sig);
 }
 
-/* test sign*/
+deleteOldKeys();
+
+const sync = new Worker('/sync.js');
+sync.onmessage = (e) => {
+    //e.data;
+};
+sync.postMessage([wsUri, null]);
+
+onmessage = (e) => {
+    //e.data;
+}
+//postMessage();
+
+
+/* tests:
+ 
+//sign
 signMSG("hello world", function(publicKey, msg, sig){
     let res = verifyMSG(publicKey, msg, sig);
     logerr(res);
-}); 
-/**/
+});
 
-//sync
-function sync(){
-    const wsUri = "ws://127.0.0.1/";
-    websocket = new WebSocket(wsUri);
-
-    websocket.addEventListener("open", () => {
-        logerr("CONNECTED");
-        websocket.send("ping");
-    });
-
-    websocket.addEventListener("close", () => {
-        logerr("DISCONNECTED");
-    });
-
-    websocket.addEventListener("message", (e) => {
-        logerr(`RECEIVED: ${e.data}`);
-    });
-
-    websocket.addEventListener("error", (e) => {
-        logerr(`ERROR: ${e.data}`);
-    });
+//db load
+let arr = [];
+for (step = 0; step < 10000; step++) {
+    let keyPair = bitcoinjs.ECPair.makeRandom();
+    let hash = bitcoinjs.crypto.hash160(keyPair.publicKey);
+    arr.push(hash);
 }
+insertPubKeys(arr, dateNow);
 
-
-deleteOldKeys();
-insertPubKeys([125, 126], dateNow);
+*/
