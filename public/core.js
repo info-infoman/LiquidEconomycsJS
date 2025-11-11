@@ -1,14 +1,15 @@
 importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js');
 
-const maxAge = 30, baseName = "appBase", wsUri = "ws://" + self.location.host, limit = 100000,
+const maxAge = 30, baseName = "appBase", limit = 100000,
+    wsUri = "ws://" + self.location.host,
+    sync = new Worker('/sync.js'),
     objectStores = 
     {
         accounts : "accounts",
         mainCount : "mainCount",
         main : "main"
     };
-var provideService = false;
-    pubKeyMin = new Uint8Array(20), pubKeyMax = new Uint8Array(20),
+var pubKeyMin = new Uint8Array(20), pubKeyMax = new Uint8Array(20),
     minDate = 0, dateNow = 0;
 
 minDate = getDateIntByAge(maxAge);
@@ -264,10 +265,15 @@ function generateAnswer(msg){
 
 deleteOldKeys();
 
-const sync = new Worker('/sync.js');
 sync.onmessage = (e) => {
-    generateAnswer(e.data);
+    if(e.data === "ERROR"){
+        wsUri = "ws://" + self.location.host;
+        sync.postMessage([wsUri, null]);
+    }else{
+        generateAnswer(e.data);
+    } 
 };
+
 sync.postMessage([wsUri, null]);
 
 onmessage = (e) => {
