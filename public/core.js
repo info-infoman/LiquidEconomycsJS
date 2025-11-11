@@ -1,7 +1,7 @@
 importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js');
 
-const maxAge = 30, baseName = "appBase", wsUri = "ws://" + self.location.host,
-objectStores = 
+const maxAge = 30, baseName = "appBase", wsUri = "ws://" + self.location.host, limit = 100000,
+    objectStores = 
     {
         syncServers : "syncServers",
         accounts : "accounts",
@@ -15,7 +15,7 @@ var provideService = false;
 minDate = getDateIntByAge(maxAge);
 dateNow = getDateIntByAge(0);
 pubKeyMin.fill(0);
-pubKeyMax.fill(255); 
+pubKeyMax.fill(255);
 
 function logerr(err){
     console.log(err);
@@ -50,6 +50,22 @@ function connectDB(f){
     }
 }
 
+function getRandomIntInclusive(date, f) {
+    const tx = db.transaction([objectStores.mainCount], "readonly");
+    tx.onerror = logerr;
+    let request = tx.objectStore(objectStores.mainCount).get(date);
+    request.onerror = logerr;
+    request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            max = Math.floor(cursor.count);
+            f(Math.floor(Math.random() * max));
+        }else{
+            f(0);
+        }
+    };  
+}
+
 function findPubKey(pubKey, f){
     connectDB(function(db){
         let request = db.transaction([objectStores.main], "readonly").objectStore(objectStores.main).openCursor(pubKey);
@@ -65,41 +81,39 @@ function findPubKey(pubKey, f){
     });
 }
 
-function getPubKeys(data, offset, limit){
-    return new Promise((resolve, reject) => {
-        let skipCount = 0;
-        let retrievedCount = 0;
-        const results = [];
-        connectDB(function(db){
-            const tx = db.transaction([objectStores.main], "readonly");
-            tx.onerror = logerr;
-            const keyRange = IDBKeyRange.bound([pubKeyMin, date], [pubKeyMax, data]);
-            let request = tx.objectStore(objectStores.main).index("idx_pubKey_date").openCursor(keyRange);
-            request.onerror = logerr;
-            request.onsuccess = (event) => {
-                const cursor = event.target.result;
-                if (cursor) {
-                    if (skipCount < offset) {
-                        skipCount++;
-                        cursor.continue();
-                    } else if (retrievedCount < limit) {
-                        results.push(cursor.value);
-                        retrievedCount++;
-                        cursor.continue();
-                    } else {
-                        resolve(results); // Limit reached
-                    }
+function getPubKeys(date, offset, limit, f){
+    let skipCount = 0;
+    let retrievedCount = 0;
+    const results = [];
+    connectDB(function(db){
+        const tx = db.transaction([objectStores.main], "readonly");
+        tx.onerror = logerr;
+        const keyRange = IDBKeyRange.bound([pubKeyMin, date], [pubKeyMax, date]);
+        let request = tx.objectStore(objectStores.main).index("idx_pubKey_date").openCursor(keyRange);
+        request.onerror = logerr;
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                if (skipCount < offset) {
+                    skipCount++;
+                    cursor.continue();
+                } else if (retrievedCount < limit) {
+                    results.push(cursor.value);
+                    retrievedCount++;
+                    cursor.continue();
                 } else {
-                    resolve(results); // No more records
+                    f(results); // Limit reached
                 }
-            };
-        });
+            } else {
+                f(results); // No more records
+            }
+        };
     });
 }
 
 function insertPubKeys(pubKeys, date){
     connectDB(function(db){
-        var count = 0;
+        let count = 0;
         const tx = db.transaction([objectStores.main], "readwrite");
         tx.onerror = logerr;
         pubKeys.forEach(pubKey => {
@@ -214,11 +228,48 @@ function verifyMSG(publicKey, msg, sig){
     return key.verify(hashMSG, sig);
 }
 
+function generateAnswer(msg){
+    if(bitcoinjs.Buffer.byteLength(msg) >= 2){
+        let getHashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(0), 0, 1),
+            hashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(1), 0, 1),
+            concatList = [],
+            msgType = bitcoinjs.Buffer.from(msg, 0, 1),
+            age = bitcoinjs.Buffer.from(msg, 1, 1),
+            date = getDateIntByAge(age[0]);
+        if (getHashs === msgType){
+            concatList.push(hashs, 0, 1);
+            concatList.push(bitcoinjs.Buffer.from(age, 0, 1));
+            getRandomIntInclusive(date, function(offset){
+                getPubKeys(date, offset, limit, function(arr){
+                    for (let i = 0; i < arr.length; i++) {
+                        concatList.push(bitcoinjs.Buffer.from(arr[i]));
+                    }
+                    sync.postMessage([wsUri, bitcoinjs.Buffer.concat(concatList)]);
+                });
+            });   
+        }else{
+            if(age[0] < maxAge){
+                let pubKeys = [];
+                let data = bitcoinjs.Buffer.from(msg);
+                for (let i = 2; i + 20 < data.byteLength; i + 20) {
+                    pubKeys.push(bitcoinjs.Buffer.from(data, i, i + 20));
+                }
+                insertPubKeys(pubKeys, getDateIntByAge(date));
+                let nextAge = new Uint8Array(1);
+                nextAge.fill(age[0] + 1);
+                concatList.push(getHashs, 0, 1);
+                concatList.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
+                sync.postMessage([wsUri, bitcoinjs.Buffer.concat(concatList)]);
+            }
+        }
+    }
+}
+
 deleteOldKeys();
 
 const sync = new Worker('/sync.js');
 sync.onmessage = (e) => {
-    //e.data;
+    generateAnswer(e.data);
 };
 sync.postMessage([wsUri, null]);
 
