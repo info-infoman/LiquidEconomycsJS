@@ -3,7 +3,6 @@ importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinj
 const maxAge = 30, baseName = "appBase", wsUri = "ws://" + self.location.host, limit = 100000,
     objectStores = 
     {
-        syncServers : "syncServers",
         accounts : "accounts",
         mainCount : "mainCount",
         main : "main"
@@ -39,7 +38,6 @@ function connectDB(f){
     }
     request.onupgradeneeded = function(e){
         const db = e.target.result,
-        syncServers = db.createObjectStore(objectStores.syncServers, { keyPath: "server" }),
         accounts = db.createObjectStore(objectStores.accounts, { keyPath: "publicKey" }),
         main = db.createObjectStore(objectStores.main, { keyPath: "pubKey" }),
         mainCount = db.createObjectStore(objectStores.mainCount, { keyPath: "date" });
@@ -238,7 +236,7 @@ function generateAnswer(msg){
             date = getDateIntByAge(age[0]);
         if (getHashs === msgType){
             concatList.push(hashs, 0, 1);
-            concatList.push(bitcoinjs.Buffer.from(age, 0, 1));
+            concatList.push(age);
             getRandomIntInclusive(date, function(offset){
                 getPubKeys(date, offset, limit, function(arr){
                     for (let i = 0; i < arr.length; i++) {
@@ -250,11 +248,10 @@ function generateAnswer(msg){
         }else{
             if(age[0] < maxAge){
                 let pubKeys = [];
-                let data = bitcoinjs.Buffer.from(msg);
                 for (let i = 2; i + 20 < data.byteLength; i + 20) {
-                    pubKeys.push(bitcoinjs.Buffer.from(data, i, i + 20));
+                    pubKeys.push(bitcoinjs.Buffer.from(msg, i, i + 20));
                 }
-                insertPubKeys(pubKeys, getDateIntByAge(date));
+                insertPubKeys(pubKeys, date);
                 let nextAge = new Uint8Array(1);
                 nextAge.fill(age[0] + 1);
                 concatList.push(getHashs, 0, 1);

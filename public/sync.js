@@ -27,7 +27,7 @@ function sync(wsUri, data){
 }
 
 onmessage = (e) => {
-    if (websocket == null){
+    if (websocket === null || websocket.url !== e.data[0]){
        sync(e.data[0], e.data[1]); 
     }else{
         websocket.send(e.data[1]);
