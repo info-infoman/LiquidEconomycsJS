@@ -1,7 +1,6 @@
 importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js');
 
 const maxAge = 30, baseName = "appBase", limit = 100000,
-    wsUri = "ws://" + self.location.host,
     sync = new Worker('/sync.js'),
     objectStores = 
     {
@@ -227,54 +226,73 @@ function verifyMSG(publicKey, msg, sig){
     return key.verify(hashMSG, sig);
 }
 
-function generateAnswer(msg){
+/*
+msg format:
+From provider service:
+msgType(1byte) + age(1byte) + pubKeys(array of 20byte hash - similar bitcoin adress)
+From consumer service:
+msgType(1byte) + age(1byte)
+*/
+function generateAnswer(wsUri, msg){
     if(bitcoinjs.Buffer.byteLength(msg) >= 2){
-        let getHashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(0), 0, 1),
+        let result = [],
+            getHashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(0), 0, 1),
             hashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(1), 0, 1),
-            concatList = [],
             msgType = bitcoinjs.Buffer.from(msg, 0, 1),
-            age = bitcoinjs.Buffer.from(msg, 1, 1),
-            date = getDateIntByAge(age[0]);
-        if (getHashs === msgType){
-            concatList.push(hashs, 0, 1);
-            concatList.push(age);
-            getRandomIntInclusive(date, function(offset){
-                getPubKeys(date, offset, limit, function(arr){
-                    for (let i = 0; i < arr.length; i++) {
-                        concatList.push(bitcoinjs.Buffer.from(arr[i]));
-                    }
-                    sync.postMessage([wsUri, bitcoinjs.Buffer.concat(concatList)]);
-                });
-            });   
-        }else{
-            if(age[0] < maxAge){
+            age = bitcoinjs.Buffer.from(msg, 1, 1);
+        if(age[0] >= 0 && age[0] <= maxAge){
+            let date = getDateIntByAge(age[0]);
+            if (msgType === getHashs){
+                result.push(hashs, 0, 1);
+                result.push(age);
+                getRandomIntInclusive(date, function(offset){
+                    getPubKeys(date, offset, limit, function(arr){
+                        for (let i = 0; i < arr.length; i++) {
+                            result.push(bitcoinjs.Buffer.from(arr[i]));
+                        }
+                        sync.postMessage([wsUri, bitcoinjs.Buffer.concat(result)]);
+                    });
+                });   
+            }else{
                 let pubKeys = [];
-                for (let i = 2; i + 20 < data.byteLength; i + 20) {
-                    pubKeys.push(bitcoinjs.Buffer.from(msg, i, i + 20));
+                for (let i = 0; i < limit || 2 + (i * 20) > msg.byteLength; i++) {
+                    pubKeys.push(bitcoinjs.Buffer.from(msg, 2 + (i * 20), 20));
                 }
                 insertPubKeys(pubKeys, date);
                 let nextAge = new Uint8Array(1);
                 nextAge.fill(age[0] + 1);
-                concatList.push(getHashs, 0, 1);
-                concatList.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
-                sync.postMessage([wsUri, bitcoinjs.Buffer.concat(concatList)]);
+                result.push(getHashs, 0, 1);
+                result.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
+                sync.postMessage([wsUri, bitcoinjs.Buffer.concat(result)]); 
             }
         }
     }
 }
 
+function getDefaultWsUri(f){
+    getMyKey(function(keyPair){
+        f("ws://" + self.location.host + "/?channelId=" + bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(keyPair.publicKey)));
+    });
+}
+
 deleteOldKeys();
 
+
 sync.onmessage = (e) => {
-    if(e.data === "ERROR"){
-        wsUri = "ws://" + self.location.host;
-        sync.postMessage([wsUri, null]);
+    if(e.data[1] === "ERROR"){
+        getDefaultWsUri(function(res){
+            sync.postMessage([res, null]);
+        });
     }else{
-        generateAnswer(e.data);
+        generateAnswer(e.data[0], e.data[1]);
     } 
 };
 
-sync.postMessage([wsUri, null]);
+getDefaultWsUri(function(res){
+    sync.postMessage([res, null]);
+});
+
+
 
 onmessage = (e) => {
     //e.data;

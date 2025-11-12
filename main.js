@@ -13,19 +13,22 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 
 // WebSocket connection handling
-wss.on('connection', function connection(ws) {
-  ws.on('message', function message(data, isBinary) {
+wss.on('connection', function connection(ws, req) {
+	const parameters = url.parse(req.url, true);
+	ws.channelId = parameters.query.channelId;
+
+	ws.on('message', function message(data, isBinary) {
 		if (isBinary){
 			console.log('isBinary');
 			wss.clients.forEach(function each(client) {
-			  if (client !== ws && client.readyState === WebSocket.OPEN) {
+				if (client !== ws && client.readyState === WebSocket.OPEN && client.channelId === ws.channelId) {
 				client.send(data, { binary: true });
-			  }
+				}
 			});
 		}
 	});
-  
-  ws.on('close', function close() {
+
+	ws.on('close', function close() {
 		console.log('disconnected');
 	});
 });

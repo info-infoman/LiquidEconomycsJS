@@ -14,17 +14,17 @@ function sync(wsUri, data){
 
     websocket.addEventListener("close", () => {
         logerr("DISCONNECTED");
-        postMessage("ERROR");
+        postMessage([wsUri, "ERROR"]);
     });
 
     websocket.addEventListener("message", (e) => {
         logerr(`RECEIVED: ${e.data}`);
-        postMessage(e.data);
+        postMessage([wsUri, e.data]);
     });
 
     websocket.addEventListener("error", (e) => {
         logerr(`ERROR: ${e.data}`);
-        postMessage("ERROR");
+        postMessage([wsUri, "ERROR"]);
     });
 }
 
