@@ -14,8 +14,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // WebSocket connection handling
 wss.on('connection', function connection(ws, req) {
-	const parameters = url.parse(req.url, true);
-	ws.channelId = parameters.query.channelId;
+	//const parameters = url.parse(req.url, true);
+	//ws.channelId = parameters.query.channelId;
 
 	ws.on('message', function message(data, isBinary) {
 		if (isBinary){
@@ -25,6 +25,8 @@ wss.on('connection', function connection(ws, req) {
 				client.send(data, { binary: true });
 				}
 			});
+		}else{
+			ws.channelId = data;
 		}
 	});
 

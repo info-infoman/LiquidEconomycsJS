@@ -1,20 +1,21 @@
-var websocket = null;
+var websockets = [];
 
 function logerr(err){
     console.log(err);
 }
 
 function sync(wsUri, data){
-    websocket = new WebSocket(wsUri);
+    let websocket = new WebSocket(wsUri);
 
     websocket.addEventListener("open", () => {
         logerr("CONNECTED");
-        data = sendData;
+        websockets.push(websocket);
+        sendData(websocket, data);
     });
 
     websocket.addEventListener("close", () => {
         logerr("DISCONNECTED");
-        postMessage([wsUri, "ERROR"]);
+        websockets.filter(item => item !== websocket);
     });
 
     websocket.addEventListener("message", (e) => {
@@ -24,23 +25,21 @@ function sync(wsUri, data){
 
     websocket.addEventListener("error", (e) => {
         logerr(`ERROR: ${e.data}`);
-        postMessage([wsUri, "ERROR"]);
+        websockets.filter(item => item !== websocket);
     });
 }
 
-function sendData(data){
+function sendData(websocket, data){
     if (data !== null){
         websocket.send(data);
     }
 }
 
 onmessage = (e) => {
-    if (websocket === null){
-       sync(e.data[0], e.data[1]); 
-    }else if(websocket.url !== e.data[0]){
-        websocket.close();
-        sync(e.data[0], e.data[1]);
+    let websocket = websockets.find(user => user.url === e.data[0]);
+    if (websocket === undefined){
+       sync(e.data[0], e.data[1]);
     }else{
-        e.data[1] = sendData;
+        sendData(websocket, e.data[1]);
     }
 }

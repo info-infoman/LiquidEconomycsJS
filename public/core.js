@@ -271,28 +271,24 @@ function generateAnswer(wsUri, msg){
 
 function getDefaultWsUri(f){
     getMyKey(function(keyPair){
-        f("ws://" + self.location.host + "/?channelId=" + bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(keyPair.publicKey)));
+        f(  
+            { 
+                "wsUri": "ws://" + self.location.host,
+                "channelId": bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(keyPair.publicKey))
+            }
+        );
     });
 }
 
 deleteOldKeys();
 
-
 sync.onmessage = (e) => {
-    if(e.data[1] === "ERROR"){
-        getDefaultWsUri(function(res){
-            sync.postMessage([res, null]);
-        });
-    }else{
-        generateAnswer(e.data[0], e.data[1]);
-    } 
+    generateAnswer(e.data[0], e.data[1]); 
 };
 
 getDefaultWsUri(function(res){
-    sync.postMessage([res, null]);
+    sync.postMessage([res.wsUri, res.channelId]);
 });
-
-
 
 onmessage = (e) => {
     //e.data;
