@@ -291,8 +291,20 @@ getDefaultWsUri(function(res){
 });
 
 onmessage = (e) => {
+    let res = null;
     if(e.data[0] === "generateQrCodeString"){
-        postMessage([e.data[0], "111"]);
+        getMyKey(function(keyPair){
+            res = keyPair.publicKey.toString('hex');
+            if (e.data[1] === 1){//provider
+                res = res + " ws://" + self.location.host;
+            }else{
+                let dagest = bitcoinjs.crypto.hash256(keyPair.publicKey); 
+                let key = bitcoinjs.ECPair.fromPrivateKey(keyPair.privateKey);
+                res = res + " " + key.sign(dagest).toString('hex');
+            }
+            postMessage([e.data[0], res]);
+        });
+        
     }
 }
 //postMessage();

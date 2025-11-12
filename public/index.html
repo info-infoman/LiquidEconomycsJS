@@ -52,6 +52,7 @@
     }else{
         //variables
         const provideBtn = document.getElementById('provide'),
+            acceptBtn = document.getElementById('accept'),
             core = new Worker('/core.js');
 
         //func
@@ -60,7 +61,7 @@
         }
 
         function generateQrCode(QrCodeString){
-            var typeNumber = 4;
+            var typeNumber = 0;
             var errorCorrectionLevel = 'L';
             var qr = qrcode(typeNumber, errorCorrectionLevel);
             qr.addData(QrCodeString);
@@ -79,6 +80,10 @@
             setRole(1);
         });
 
+        acceptBtn.addEventListener('click', function(event) {
+            setRole(0);
+        });
+        
         //do
         core.postMessage(["generateQrCodeString", 1]);
     }
