@@ -10,12 +10,13 @@ function sync(wsUri, data){
     websocket.addEventListener("open", () => {
         logerr("CONNECTED");
         websockets.push(websocket);
+        //set channel id
         sendData(websocket, data);
     });
 
     websocket.addEventListener("close", () => {
         logerr("DISCONNECTED");
-        websockets.filter(item => item !== websocket);
+        websockets = websockets.filter(item => item !== websocket);
     });
 
     websocket.addEventListener("message", (e) => {
@@ -25,7 +26,7 @@ function sync(wsUri, data){
 
     websocket.addEventListener("error", (e) => {
         logerr(`ERROR: ${e.data}`);
-        websockets.filter(item => item !== websocket);
+        websockets = websockets.filter(item => item !== websocket);
     });
 }
 
