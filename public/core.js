@@ -291,7 +291,9 @@ getDefaultWsUri(function(res){
 });
 
 onmessage = (e) => {
-    //e.data;
+    if(e.data[0] === "generateQrCodeString"){
+        postMessage([e.data[0], "111"]);
+    }
 }
 //postMessage();
 
