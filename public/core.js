@@ -235,7 +235,7 @@ msgType(1byte) + age(1byte)
 */
 function generateAnswer(wsUri, msg){
     if(bitcoinjs.Buffer.byteLength(msg) >= 2){
-        let result = [],
+        let request = [],
             getHashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(0), 0, 1),
             hashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(1), 0, 1),
             msgType = bitcoinjs.Buffer.from(msg, 0, 1),
@@ -243,14 +243,14 @@ function generateAnswer(wsUri, msg){
         if(age[0] >= 0 && age[0] <= maxAge){
             let date = getDateIntByAge(age[0]);
             if (msgType === getHashs){
-                result.push(hashs);
-                result.push(age);
+                request.push(hashs);
+                request.push(age);
                 getRandomIntInclusive(date, function(offset){
                     getPubKeys(date, offset, limit, function(arr){
                         for (let i = 0; i < arr.length; i++) {
-                            result.push(bitcoinjs.Buffer.from(arr[i]));
+                            request.push(bitcoinjs.Buffer.from(arr[i]));
                         }
-                        sync.postMessage([wsUri, bitcoinjs.Buffer.concat(result)]);
+                        sync.postMessage([wsUri, bitcoinjs.Buffer.concat(request)]);
                     });
                 });   
             }else{
@@ -261,9 +261,9 @@ function generateAnswer(wsUri, msg){
                 insertPubKeys(pubKeys, date);
                 let nextAge = new Uint8Array(1);
                 nextAge.fill(age[0] + 1);
-                result.push(getHashs);
-                result.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
-                sync.postMessage([wsUri, bitcoinjs.Buffer.concat(result)]); 
+                request.push(getHashs);
+                request.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
+                sync.postMessage([wsUri, bitcoinjs.Buffer.concat(request)]); 
             }
         }
     }
@@ -305,6 +305,33 @@ onmessage = (e) => {
             postMessage([e.data[0], res]);
         });
         
+    }else if(e.data[0] === "sync" && e.data[1][1].length > 74){
+        let pubKey = bitcoinjs.Buffer.from(e.data[1][1].substring(0, 66), 'hex');
+        if(e.data[1][0] === 1){
+            if(e.data[1][1].length === 195){
+                let sig = bitcoinjs.Buffer.from(e.data[1][1].substring(67, 128), 'hex');
+                findPubKey(pubKey, function(res){
+                    if(res && verifyMSG(pubKey, pubKey, sig)){
+                        getDefaultWsUri(function(res){
+                            sync.postMessage([res.wsUri, res.channelId]);
+                        });
+                        postMessage([e.data[0], true]);
+                    }else{
+                        postMessage([e.data[0], false]);
+                    }
+                });
+            }
+        }else{
+            insertPubKeys([pubKey], dateNow);
+
+            let wsUri = e.data[1][1].substring(67, e.data[1][1].length - 67),
+            channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(pubKey), 1),
+            request = [];
+
+            sync.postMessage([wsUri, channelId]);
+            request.push(bitcoinjs.Buffer.from(new Uint8Array(2).fill(0), 0, 2));
+            sync.postMessage([wsUri, request]);
+        }
     }
 }
 //postMessage();
