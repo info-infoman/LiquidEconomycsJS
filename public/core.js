@@ -243,7 +243,7 @@ function generateAnswer(wsUri, msg){
         if(age[0] >= 0 && age[0] <= maxAge){
             let date = getDateIntByAge(age[0]);
             if (msgType === getHashs){
-                result.push(hashs, 0, 1);
+                result.push(hashs);
                 result.push(age);
                 getRandomIntInclusive(date, function(offset){
                     getPubKeys(date, offset, limit, function(arr){
@@ -261,7 +261,7 @@ function generateAnswer(wsUri, msg){
                 insertPubKeys(pubKeys, date);
                 let nextAge = new Uint8Array(1);
                 nextAge.fill(age[0] + 1);
-                result.push(getHashs, 0, 1);
+                result.push(getHashs);
                 result.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
                 sync.postMessage([wsUri, bitcoinjs.Buffer.concat(result)]); 
             }
@@ -274,7 +274,7 @@ function getDefaultWsUri(f){
         f(  
             { 
                 "wsUri": "ws://" + self.location.host,
-                "channelId": bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(keyPair.publicKey))
+                "channelId": bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(keyPair.publicKey), 1)
             }
         );
     });

@@ -14,9 +14,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // WebSocket connection handling
 wss.on('connection', function connection(ws, req) {
-	//const parameters = url.parse(req.url, true);
-	//ws.channelId = parameters.query.channelId;
-
 	ws.on('message', function message(data, isBinary) {
 		if (isBinary){
 			console.log('isBinary');
@@ -27,6 +24,7 @@ wss.on('connection', function connection(ws, req) {
 			});
 		}else{
 			ws.channelId = data;
+			console.log(`Create new channel ${data}`);
 		}
 	});
 
@@ -37,5 +35,5 @@ wss.on('connection', function connection(ws, req) {
 
 // Start the server
 server.listen(PORT, () => {
-    console.log(`Server listening on http://localhost:${PORT}`);
+    console.log(`Server listening on port ${PORT}`);
 });
