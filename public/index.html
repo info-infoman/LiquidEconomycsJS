@@ -9,7 +9,25 @@
 <body>
 <div id="app">
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">Liquid Economycs</a>
+        <a class="navbar-brand" href="#">
+            <svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 53 53" xml:space="preserve" width="45px" height="45px" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier"> 
+                    <rect x="27" y="28" style="fill:#424A60;" width="2" height="18"></rect> 
+                    <rect x="37.5" y="2.893" transform="matrix(0.7071 0.7071 -0.7071 0.7071 20.8223 -23.2696)" style="fill:#424A60;" width="2" height="21.213"></rect> 
+                    <rect x="15" y="21.858" transform="matrix(0.7071 0.7071 -0.7071 0.7071 30.1421 -0.7696)" style="fill:#424A60;" width="2" height="28.284"></rect> 
+                    <rect x="10.722" y="13.5" transform="matrix(0.7071 0.7071 -0.7071 0.7071 15.6716 -8.8345)" style="fill:#424A60;" width="15.556" height="2"></rect> 
+                    <rect x="26.893" y="32.5" transform="matrix(0.7071 0.7071 -0.7071 0.7071 34.6716 -16.7046)" style="fill:#424A60;" width="21.213" height="2"></rect> 
+                    <circle style="fill:#43B05C;" cx="48" cy="5" r="5"></circle>
+                    <circle style="fill:#7383BF;" cx="28" cy="48" r="5"></circle> 
+                    <circle style="fill:#57D8AB;" cx="5" cy="46" r="5"></circle> 
+                    <circle style="fill:#D75A4A;" cx="12" cy="8" r="3"></circle> 
+                    <circle style="fill:#EBBA16;" cx="44" cy="40" r="3"></circle> 
+                    <circle style="fill:#4B6DAA;" cx="28" cy="24" r="7"></circle> 
+                </g>
+            </svg>
+            Liquid Economycs
+        </a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -26,11 +44,11 @@
         <h1 class="display-4">You are:</h1>
         <div class="btn-group btn-group-toggle btn-block" data-toggle="buttons">
             <label class="btn btn-secondary active">
-                <input type="radio" name="options" id="provide" checked> Provide
+                <input type="radio" name="options" id="provide" checked> Provider
             </label>
             <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">or</a>
             <label class="btn btn-secondary">
-                <input type="radio" name="options" id="accept"> Accept
+                <input type="radio" name="options" id="accept"> Accepter
             </label>
         </div>
 
@@ -84,7 +102,7 @@
             qr.make();
             let tag = qr.createImgTag().replaceAll("/>", `class="rounded mx-auto d-block" />`);
             QrCodeContainer.innerHTML =  tag + `<div class="media-body">
-    <h5 class="mt-0">Your QR code</h5>
+    <h5 class="mt-0">- Your QR code</h5>
     To maintain the operation of the peer-to-peer network, before providing or receiving services, scan your partner's qr-code and offer to scan your qr-code.These simple steps will help expand your network of interactions.
   </div>`;
         }

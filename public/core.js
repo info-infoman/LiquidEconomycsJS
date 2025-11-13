@@ -42,7 +42,7 @@ function connectDB(f){
         main = db.createObjectStore(objectStores.main, { keyPath: "pubKey" }),
         mainCount = db.createObjectStore(objectStores.mainCount, { keyPath: "date" });
 
-        main.createIndex("idx_pubKey_date", ["pubKey", "date"], { unique: true });
+        main.createIndex("idx_date", "date", { unique: false });
 
         connectDB(f);
     }
@@ -86,8 +86,7 @@ function getPubKeys(date, offset, limit, f){
     connectDB(function(db){
         const tx = db.transaction([objectStores.main], "readonly");
         tx.onerror = logerr;
-        const keyRange = IDBKeyRange.bound([pubKeyMin, date], [pubKeyMax, date]);
-        let request = tx.objectStore(objectStores.main).index("idx_pubKey_date").openCursor(keyRange);
+        let request = tx.objectStore(objectStores.main).index("idx_date").openCursor(date);
         request.onerror = logerr;
         request.onsuccess = (event) => {
             const cursor = event.target.result;
@@ -115,12 +114,11 @@ function insertPubKeys(pubKeys, date){
         const tx = db.transaction([objectStores.main], "readwrite");
         tx.onerror = logerr;
         pubKeys.forEach(pubKey => {
-            const keyRange = IDBKeyRange.bound([pubKey, date], [pubKey, dateNow]);
-            let request = tx.objectStore(objectStores.main).index("idx_pubKey_date").openCursor(keyRange);
+            let request = tx.objectStore(objectStores.main).openCursor(pubKey);
             request.onerror = logerr;
             request.onsuccess = (event) => {
                 const cursor = event.target.result;
-                if (!cursor) {
+                if (!cursor || cursor.value.date < date) {
                     let request = tx.objectStore(objectStores.main).put({ "pubKey": pubKey, "date": date });
                     request.onerror = logerr;
                     request.onsuccess = (event) => {
@@ -159,8 +157,8 @@ function deleteOldKeys(){
     connectDB(function(db){
         const tx = db.transaction([objectStores.main, objectStores.mainCount], "readwrite");
         tx.onerror = logerr;
-        const keyRange = IDBKeyRange.bound([pubKeyMin, 0], [pubKeyMax, minDate]);
-        let request = tx.objectStore(objectStores.main).index("idx_pubKey_date").openCursor(keyRange);
+        const keyRange = IDBKeyRange.bound(0, minDate);
+        let request = tx.objectStore(objectStores.main).index("idx_date").openCursor(keyRange);
         request.onerror = logerr;
         request.onsuccess = (event) => {
             const cursor = event.target.result;
@@ -169,9 +167,9 @@ function deleteOldKeys(){
             }
         };
         const keyRangeCounts = IDBKeyRange.bound(0, minDate);
-        const requestCounts = tx.objectStore(objectStores.mainCount).openCursor(keyRange);
+        let requestCounts = tx.objectStore(objectStores.mainCount).openCursor(keyRangeCounts);
         requestCounts.onerror = logerr;
-        request.onsuccess = (event) => {
+        requestCounts.onsuccess = (event) => {
             const cursor = event.target.result;
             if (cursor) {
                 cursor.delete();
