@@ -23,20 +23,21 @@
     </nav>
 
     <div class="container mt-5">
+        <h1 class="display-4">You are:</h1>
         <div class="btn-group btn-group-toggle btn-block" data-toggle="buttons">
             <label class="btn btn-secondary active">
                 <input type="radio" name="options" id="provide" checked> Provide
             </label>
+            <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">or</a>
             <label class="btn btn-secondary">
                 <input type="radio" name="options" id="accept"> Accept
             </label>
         </div>
 
-        <div id="qrcode"></div>
+        <div id="qrcode" class="media"></div>
         <div id="alert"></div>
         <p><button type="button" class="btn btn-primary btn-block" id="scan">Scan partner qr-code</button></p>
-        
-
+    
         <div id="reader" hidden></div>
         <input type="file" id="qr-input-file" accept="image/*" capture hidden>
     </div>
@@ -53,7 +54,12 @@
 
 <script>
     if (!window.Worker) {
-        document.getElementById('qrcode').innerHTML = "<h1>Your browser does not support this application.</h1>";
+        document.getElementById('qrcode').innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <strong>Warning!</strong> <hr> Your browser does not support this application.
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    </div>`;
     }else{
         //variables
         const QrCodeContainer = document.getElementById('qrcode'),
@@ -76,7 +82,11 @@
             var qr = qrcode(typeNumber, errorCorrectionLevel);
             qr.addData(QrCodeString);
             qr.make();
-            QrCodeContainer.innerHTML = qr.createImgTag();
+            let tag = qr.createImgTag().replaceAll("/>", `class="rounded mx-auto d-block" />`);
+            QrCodeContainer.innerHTML =  tag + `<div class="media-body">
+    <h5 class="mt-0">Your QR code</h5>
+    To maintain the operation of the peer-to-peer network, before providing or receiving services, scan your partner's qr-code and offer to scan your qr-code.These simple steps will help expand your network of interactions.
+  </div>`;
         }
 
         //events
@@ -84,16 +94,24 @@
             if(e.data[0] === "generateQrCodeString"){
                 generateQrCode(e.data[1]);
             }else if(e.data[0] === "sync"){
-                if(e.data[1]){
-                    alertElement.innerHTML = `<div class="alert alert-success alert-danger alert-dismissible fade show" role="alert">
-                        <strong>Exelent!</strong> <hr> Your partner has helped your community.
+                if(e.data[1] === 2){
+                    alertElement.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <strong>Exelent!</strong> <hr> Your partner has helped your community. You can help him too.
                         <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
                         </div>`;
-                }else{
+                }else if(e.data[1] === 1){
+                    alertElement.innerHTML = `<div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <strong>Attention!</strong> <hr> Your partner has not been helping your community. This is probably a new member of the community.
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    </div>`;
+                }
+                else if(e.data[1] === 0){
                     alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Attention!</strong> <hr> Your partner has not been helping your community.
+                    <strong>Warning!</strong> <hr> Your partner is not the owner of the verified ID. He might be trying to deceive you.
                     <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -122,6 +140,7 @@
             .then(decodedText => {
                 // success, use decodedText
                 core.postMessage(["sync", [(provideBtn.checked ? 1 : 0), decodedText]]);
+                fileinput.value = '';
                 console.log(decodedText);
             })
             .catch(err => {

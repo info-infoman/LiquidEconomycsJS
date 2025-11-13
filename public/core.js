@@ -309,15 +309,17 @@ onmessage = (e) => {
         let pubKey = bitcoinjs.Buffer.from(e.data[1][1].substring(0, 66), 'hex');
         if(e.data[1][0] === 1){
             if(e.data[1][1].length === 195){
-                let sig = bitcoinjs.Buffer.from(e.data[1][1].substring(67, 128), 'hex');
+                let sig = bitcoinjs.Buffer.from(e.data[1][1].substring(67), 'hex');
                 findPubKey(pubKey, function(res){
-                    if(res && verifyMSG(pubKey, pubKey, sig)){
+                    if(!verifyMSG(pubKey, pubKey, sig)){
+                        postMessage([e.data[0], 0]);
+                    }else if(!res){
+                        postMessage([e.data[0], 1]);
+                    }else{
                         getDefaultWsUri(function(res){
                             sync.postMessage([res.wsUri, res.channelId]);
                         });
-                        postMessage([e.data[0], true]);
-                    }else{
-                        postMessage([e.data[0], false]);
+                        postMessage([e.data[0], 2]);
                     }
                 });
             }
