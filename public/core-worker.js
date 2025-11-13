@@ -1,20 +1,27 @@
 importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js');
 
 const maxAge = 30, baseName = "appBase", limit = 100000,
-    sync = new Worker('/sync.js'),
     objectStores = 
     {
         accounts : "accounts",
         mainCount : "mainCount",
         main : "main"
     };
-var minDate = 0, dateNow = 0;
+var minDate = 0, dateNow = 0, websockets = [];
 
 minDate = getDateIntByAge(maxAge);
 dateNow = getDateIntByAge(0);
 
 function logerr(err){
     console.log(err);
+}
+
+function postMessage(type, data){
+    self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+            client.postMessage({ type: type, data: data });
+        });
+    });
 }
 
 function getDateIntByAge(age){
@@ -227,7 +234,7 @@ msgType(1byte) + age(1byte) + pubKeys(array of 20byte hash - similar bitcoin adr
 From consumer service:
 msgType(1byte) + age(1byte)
 */
-function generateAnswer(wsUri, msg){
+function generateAnswer(url, msg){
     if(bitcoinjs.Buffer.byteLength(msg) >= 2){
         let request = [],
             getHashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(0), 0, 1),
@@ -244,7 +251,7 @@ function generateAnswer(wsUri, msg){
                         for (let i = 0; i < arr.length; i++) {
                             request.push(bitcoinjs.Buffer.from(arr[i]));
                         }
-                        sync.postMessage([wsUri, bitcoinjs.Buffer.concat(request)]);
+                        sendTo(url, bitcoinjs.Buffer.concat(request)); 
                     });
                 });   
             }else{
@@ -257,7 +264,7 @@ function generateAnswer(wsUri, msg){
                 nextAge.fill(age[0] + 1);
                 request.push(getHashs);
                 request.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
-                sync.postMessage([wsUri, bitcoinjs.Buffer.concat(request)]); 
+                sendTo(url, bitcoinjs.Buffer.concat(request));  
             }
         }
     }
@@ -267,69 +274,108 @@ function getDefaultWsUri(f){
     getMyKey(function(keyPair){
         f(  
             { 
-                "wsUri": "ws://" + self.location.host,
+                "url": "ws://" + self.location.host,
                 "channelId": bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(keyPair.publicKey), 1)
             }
         );
     });
 }
 
-deleteOldKeys();
+function initWS(url, msg){
+    let websocket = new WebSocket(url);
 
-sync.onmessage = (e) => {
-    generateAnswer(e.data[0], e.data[1]); 
-};
+    websocket.addEventListener("open", () => {
+        logerr("CONNECTED");
+        websockets.push({url: url, websocket: websocket});
+        //set channel id
+        send(websocket, msg);
+    });
 
-getDefaultWsUri(function(res){
-    sync.postMessage([res.wsUri, res.channelId]);
-});
+    websocket.addEventListener("close", () => {
+        logerr("DISCONNECTED");
+        websockets = websockets.filter(item => item.websocket !== websocket);
+    });
 
-onmessage = (e) => {
-    let res = null;
-    if(e.data[0] === "generateQrCodeString"){
-        getMyKey(function(keyPair){
-            res = keyPair.publicKey.toString('hex');
-            if (e.data[1] === 1){//provider
-                res = res + " ws://" + self.location.host;
-            }else{
-                let dagest = bitcoinjs.crypto.hash256(keyPair.publicKey),
-                    key = bitcoinjs.ECPair.fromPrivateKey(keyPair.privateKey);
-                res = res + " " + key.sign(dagest).toString('hex');
-            }
-            postMessage([e.data[0], res]);
-        });
-        
-    }else if(e.data[0] === "sync" && e.data[1][1].length > 74){
-        let pubKey = bitcoinjs.Buffer.from(e.data[1][1].substring(0, 66), 'hex');
-        if(e.data[1][0] === 1){
-            if(e.data[1][1].length === 195){
-                let sig = bitcoinjs.Buffer.from(e.data[1][1].substring(67), 'hex');
-                findPubKey(pubKey, function(res){
-                    if(!verifyMSG(pubKey, pubKey, sig)){
-                        postMessage([e.data[0], 0]);
-                    }else if(!res){
-                        postMessage([e.data[0], 1]);
-                    }else{
-                        getDefaultWsUri(function(res){
-                            sync.postMessage([res.wsUri, res.channelId]);
-                        });
-                        postMessage([e.data[0], 2]);
-                    }
-                });
-            }
-        }else{
-            insertPubKeys([pubKey], dateNow);
+    websocket.addEventListener("message", (e) => {
+        logerr(`RECEIVED: ${e.data}`);
+        generateAnswer(url, e.data);
+    });
 
-            let wsUri = e.data[1][1].substring(67, e.data[1][1].length - 67),
-                channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(pubKey), 1),
-                request = [];
+    websocket.addEventListener("error", (e) => {
+        logerr(`ERROR: ${e.data}`);
+        websockets = websockets.filter(item => item.websocket !== websocket);
+    });
+}
 
-            sync.postMessage([wsUri, channelId]);
-            request.push(bitcoinjs.Buffer.from(new Uint8Array(2).fill(0), 0, 2));
-            sync.postMessage([wsUri, request]);
-        }
+function send(websocket, msg){
+    if (msg !== null){
+        websocket.send(msg);
     }
 }
+
+function sendTo(url, msg){
+    let item = websockets.find(item => item.url === url);
+    if (item === undefined){
+        initWS(url, msg);
+    }else{
+        send(item.websocket, msg);
+    }
+}
+
+self.addEventListener('message', event => {
+    if (event.data) {
+        let data = event.data.data;
+        if(event.data.type === "GEN_QRCODE_STRING"){
+            getMyKey(function(keyPair){
+                res = keyPair.publicKey.toString('hex');
+                if (data.role === 1){//provider
+                    res = res + " ws://" + self.location.host;
+                }else{
+                    let dagest = bitcoinjs.crypto.hash256(keyPair.publicKey),
+                        key = bitcoinjs.ECPair.fromPrivateKey(keyPair.privateKey);
+                    res = res + " " + key.sign(dagest).toString('hex');
+                }
+                postMessage("QRCODE_STRING", {text: res});
+            });
+        }else if(event.data.type === "SYNC" && data.text.length > 74){
+            let pubKey = bitcoinjs.Buffer.from(data.text.substring(0, 66), 'hex');
+            if(data.role === 1){
+                if(data.text.length === 195){
+                    let sig = bitcoinjs.Buffer.from(data.text.substring(67), 'hex');
+                    findPubKey(pubKey, function(res){
+                        if(!verifyMSG(pubKey, pubKey, sig)){
+                            postMessage("SYNC_ALERT", {alert: 0});
+                        }else if(!res){
+                            postMessage("SYNC_ALERT", {alert: 1});
+                        }else{
+                            getDefaultWsUri(function(res){
+                                sendTo(res.url, res.channelId);
+                            });
+                            postMessage("SYNC_ALERT", {alert: 2});
+                        }
+                    });
+                }else{
+                    postMessage("SYNC_ALERT", {alert: 3});
+                }
+            }else{
+                insertPubKeys([pubKey], dateNow);
+                
+                let url = data.text.substring(67),
+                    channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(pubKey), 1);
+                    
+                sendTo(url, channelId);
+                sendTo(url, bitcoinjs.Buffer.from(new Uint8Array(2).fill(0), 0, 2));
+                postMessage("SYNC_ALERT", {alert: 6});
+            }
+        }
+    }
+});
+
+deleteOldKeys();
+
+getDefaultWsUri(function(res){
+    sendTo(res.url, res.channelId);
+});
 
 /* tests:
  
