@@ -95,16 +95,16 @@
         }
 
         function generateQrCode(QrCodeString){
-            var typeNumber = 0;
-            var errorCorrectionLevel = 'L';
-            var qr = qrcode(typeNumber, errorCorrectionLevel);
+            var typeNumber = 0,
+                errorCorrectionLevel = 'L',
+                qr = qrcode(typeNumber, errorCorrectionLevel);
             qr.addData(QrCodeString);
             qr.make();
             let tag = qr.createImgTag().replaceAll("/>", `class="rounded mx-auto d-block" />`);
             QrCodeContainer.innerHTML =  tag + `<div class="media-body">
-    <h5 class="mt-0">- Your QR code</h5>
-    To maintain the operation of the peer-to-peer network, before providing or receiving services, scan your partner's qr-code and offer to scan your qr-code.These simple steps will help expand your network of interactions.
-  </div>`;
+                <h5 class="mt-0">- Your QR code</h5>
+                To maintain the operation of the peer-to-peer network, before providing or receiving services, scan your partner's qr-code and offer to scan your qr-code.These simple steps will help expand your network of interactions.
+            </div>`;
         }
 
         //events
@@ -172,7 +172,6 @@
         });
         
         //do
-        //$('.alert').alert('close');
         core.postMessage(["generateQrCodeString", 1]);
     }
 </script>

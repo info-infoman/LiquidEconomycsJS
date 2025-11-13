@@ -8,25 +8,22 @@ const maxAge = 30, baseName = "appBase", limit = 100000,
         mainCount : "mainCount",
         main : "main"
     };
-var pubKeyMin = new Uint8Array(20), pubKeyMax = new Uint8Array(20),
-    minDate = 0, dateNow = 0;
+var minDate = 0, dateNow = 0;
 
 minDate = getDateIntByAge(maxAge);
 dateNow = getDateIntByAge(0);
-pubKeyMin.fill(0);
-pubKeyMax.fill(255);
 
 function logerr(err){
     console.log(err);
 }
 
 function getDateIntByAge(age){
-    const today = new Date();
-    const pastDate = new Date(today);
+    const today = new Date(),
+        pastDate = new Date(today);
     pastDate.setDate(today.getDate() - age);
-    let year = pastDate.getFullYear(); 
-    let month = pastDate.getMonth() + 1;
-    let day = pastDate.getDate();
+    let year = pastDate.getFullYear(), 
+        month = pastDate.getMonth() + 1, 
+        day = pastDate.getDate();
     return (year * 10000) + (month * 100) + day;
 }
 
@@ -38,9 +35,9 @@ function connectDB(f){
     }
     request.onupgradeneeded = function(e){
         const db = e.target.result,
-        accounts = db.createObjectStore(objectStores.accounts, { keyPath: "publicKey" }),
-        main = db.createObjectStore(objectStores.main, { keyPath: "pubKey" }),
-        mainCount = db.createObjectStore(objectStores.mainCount, { keyPath: "date" });
+            accounts = db.createObjectStore(objectStores.accounts, { keyPath: "publicKey" }),
+            main = db.createObjectStore(objectStores.main, { keyPath: "pubKey" }),
+            mainCount = db.createObjectStore(objectStores.mainCount, { keyPath: "date" });
 
         main.createIndex("idx_date", "date", { unique: false });
 
@@ -80,8 +77,7 @@ function findPubKey(pubKey, f){
 }
 
 function getPubKeys(date, offset, limit, f){
-    let skipCount = 0;
-    let retrievedCount = 0;
+    let skipCount = 0, retrievedCount = 0;
     const results = [];
     connectDB(function(db){
         const tx = db.transaction([objectStores.main], "readonly");
@@ -296,8 +292,8 @@ onmessage = (e) => {
             if (e.data[1] === 1){//provider
                 res = res + " ws://" + self.location.host;
             }else{
-                let dagest = bitcoinjs.crypto.hash256(keyPair.publicKey); 
-                let key = bitcoinjs.ECPair.fromPrivateKey(keyPair.privateKey);
+                let dagest = bitcoinjs.crypto.hash256(keyPair.publicKey),
+                    key = bitcoinjs.ECPair.fromPrivateKey(keyPair.privateKey);
                 res = res + " " + key.sign(dagest).toString('hex');
             }
             postMessage([e.data[0], res]);
@@ -325,8 +321,8 @@ onmessage = (e) => {
             insertPubKeys([pubKey], dateNow);
 
             let wsUri = e.data[1][1].substring(67, e.data[1][1].length - 67),
-            channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(pubKey), 1),
-            request = [];
+                channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(pubKey), 1),
+                request = [];
 
             sync.postMessage([wsUri, channelId]);
             request.push(bitcoinjs.Buffer.from(new Uint8Array(2).fill(0), 0, 2));
@@ -334,8 +330,6 @@ onmessage = (e) => {
         }
     }
 }
-//postMessage();
-
 
 /* tests:
  
