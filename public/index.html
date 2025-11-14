@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Liquid Economycs</title>
+    <style>
+            .chartWrapper {
+            position: relative;
+        }
+
+        .chartWrapper > canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            pointer-events:none;
+        }
+
+        .chartAreaWrapper {
+            width: 600px;
+            overflow-x: scroll;
+        }
+
+  </style>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" crossorigin="anonymous">
 </head>
 <body>
@@ -40,7 +58,7 @@
         </div>
     </nav>
 
-    <div class="container mt-5">
+    <div class="container mt-5" id="content">
         <h1 class="display-4">You are:</h1>
         <div class="btn-group btn-group-toggle btn-block" data-toggle="buttons">
             <label class="btn btn-secondary active">
@@ -59,6 +77,11 @@
         <div id="reader" hidden></div>
         <input type="file" id="qr-input-file" accept="image/*" capture hidden>
     </div>
+    <div class="container mt-5" style="overflow-x: scroll;">
+        <canvas id="myChart" height="300" width="1200"></canvas>
+        
+    </div>
+
 </div>
 
 <!-- Bootstrap -->
@@ -69,6 +92,9 @@
 <!-- Qrcode -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+<!-- Charts -->
+<script src="https://rawgit.com/nnnick/Chart.js/v1.0.2/Chart.min.js"></script>
 
 <script>
     if (!'serviceWorker' in navigator) {
@@ -164,6 +190,39 @@
             }
         }
 
+        function generateCharts(){
+            var ctx = document.getElementById("myChart").getContext("2d");
+
+        var data = {
+            labels: ["January", "February", "March", "April", "May", "June", "July"],
+            datasets: [
+                {
+                    label: "My Second dataset",
+                    fillColor: "rgba(151,187,205,0.2)",
+                    strokeColor: "rgba(151,187,205,1)",
+                    pointColor: "rgba(151,187,205,1)",
+                    pointStrokeColor: "#fff",
+                    pointHighlightFill: "#fff",
+                    pointHighlightStroke: "rgba(151,187,205,1)",
+                    data: [28, 48, 40, 19, 86, 27, 90]
+                }
+            ]
+        };
+
+        new Chart(ctx).Line(data, {
+            onAnimationComplete: function () {
+                var sourceCanvas = this.chart.ctx.canvas;
+                var copyWidth = this.scale.xScalePaddingLeft - 5;
+                // the +5 is so that the bottommost y axis label is not clipped off
+                // we could factor this in using measureText if we wanted to be generic
+                // var copyHeight = this.scale.endPoint + 5;
+                // var targetCtx = document.getElementById("myChartAxis").getContext("2d");
+                // targetCtx.canvas.width = copyWidth;
+                // targetCtx.drawImage(sourceCanvas, 0, 0, copyWidth, copyHeight, 0, 0, copyWidth, copyHeight);
+            }
+        });
+
+        }
         //events:
         navigator.serviceWorker.addEventListener("message", (event) => {
             let msg = event.data; 
@@ -212,9 +271,11 @@
         
         //do
         navigator.serviceWorker.register('/core-worker.js').then(registration => {
-                console.log('Core Worker registered');  
+                console.log('Core Worker registered');
+                postMessage("RELOAD", {role: 1});  
         });
 
+        generateCharts();
     }
 </script>
 

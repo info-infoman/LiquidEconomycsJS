@@ -322,6 +322,14 @@ function sendTo(url, msg){
     }
 }
 
+function reload(){
+    postMessage("WORKER_ACTIVATE", true);
+    getDefaultWsUri(function(res){
+        sendTo(res.url, res.channelId);
+    });
+    deleteOldKeys();
+}
+
 self.addEventListener('message', event => {
     if (event.data) {
         let data = event.data.data;
@@ -367,20 +375,19 @@ self.addEventListener('message', event => {
                 sendTo(url, bitcoinjs.Buffer.from(new Uint8Array(2).fill(0), 0, 2));
                 postMessage("SYNC_ALERT", {alert: 6});
             }
+        }else if(event.data.type === "RELOAD"){
+            reload();
         }
     }
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(clients.claim());
-  postMessage("WORKER_ACTIVATE", true);
+    event.waitUntil(clients.claim());
 });
 
-deleteOldKeys();
-
-getDefaultWsUri(function(res){
-    sendTo(res.url, res.channelId);
-});
+self.onactivate = (event) => {
+    reload();
+};
 
 /* tests:
  
