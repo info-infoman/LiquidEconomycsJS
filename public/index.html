@@ -28,14 +28,44 @@
             </svg>
             Liquid Economycs
         </a>
+        
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
-                <li class="nav-item active"><a class="nav-link" href="#home">Home</a></li>
-                <li class="nav-item"><a class="nav-link" href="#settings">Settings</a></li>
-                <li class="nav-item"><a class="nav-link" href="#statistic">Statistic</a></li>
+                <li class="nav-item active">
+                    <div class="input-group input-group-sm">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="basic-addon0">How many days store member IDs</span>
+                        </div>
+                        <input type="text" class="form-control" id="maxAge" aria-describedby="basic-addon0">
+                    </div>
+                </li>
+                &nbsp;
+                <li class="nav-item">
+                    <div class="input-group input-group-sm">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="basic-addon1">How many IDs update per day</span>
+                        </div>
+                        <input type="text" class="form-control" id="limit" aria-describedby="basic-addon1">
+                    </div>
+                </li>
+                &nbsp;
+                <li class="nav-item">
+                    <div class="input-group input-group-sm">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="basic-addon2">Private key of your public ID</span>
+                        </div>
+                        <input type="password" class="form-control" id="myID" aria-describedby="basic-addon2" value="0x00000000000000000000000000000000000000000000000000000000000000000000000000">
+                        <div class="input-group-append"></div>
+                        <button type="button" class="input-group-text" id="togglePassword" title="Сopy to clipboard" tabindex="-1" aria-describedby="basic-addon2">
+                            <!-- Eye Open Icon -->
+                            <svg fill="#000000" width="15px" height="15px" viewBox="0 0 32 32" data-name="Layer 1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"><title>Сopy to clipboard</title><path d="M27.2,8.22H23.78V5.42A3.42,3.42,0,0,0,20.36,2H5.42A3.42,3.42,0,0,0,2,5.42V20.36a3.43,3.43,0,0,0,3.42,3.42h2.8V27.2A2.81,2.81,0,0,0,11,30H27.2A2.81,2.81,0,0,0,30,27.2V11A2.81,2.81,0,0,0,27.2,8.22ZM5.42,21.91a1.55,1.55,0,0,1-1.55-1.55V5.42A1.54,1.54,0,0,1,5.42,3.87H20.36a1.55,1.55,0,0,1,1.55,1.55v2.8H11A2.81,2.81,0,0,0,8.22,11V21.91ZM28.13,27.2a.93.93,0,0,1-.93.93H11a.93.93,0,0,1-.93-.93V11a.93.93,0,0,1,.93-.93H27.2a.93.93,0,0,1,.93.93Z"/></svg>
+                        </button>
+                        </div>
+                    </div>
+                </li>
             </ul>
         </div>
     </nav>
@@ -51,7 +81,7 @@
                 <input type="radio" name="options" id="accept"> Recipient
             </label>
         </div>
-
+        <hr>
         <div id="qrcode" class="media"></div>
         <div id="alert"></div>
         <p><button type="button" class="btn btn-primary btn-block" id="scan">Scan partner qr-code</button></p>
@@ -91,6 +121,10 @@
             acceptBtn = document.getElementById('accept'),
             fileinput = document.getElementById('qr-input-file'), 
             chartContainer = document.getElementById('chartContainer'),
+            passwordInput = document.getElementById('myID'),
+            togglePassword = document.getElementById('togglePassword'),
+            limit = document.getElementById('limit'),
+            maxAge = document.getElementById('maxAge'),
             scanBtn = document.getElementById("scan");
             
         //func:
@@ -113,8 +147,8 @@
             let tag = qr.createImgTag();
             //let tag = qr.createImgTag().replaceAll("/>", `class="rounded mx-auto d-block" />`);
             QrCodeContainer.innerHTML =  tag + `<div class="media-body">
-                <h5 class="mt-0">- Your QR code</h5>
-            <small>By scanning your partner's QR code, ${(provideBtn.checked ? 
+                <h5 class="mt-0">- Your qr-code</h5>
+            <small>By scanning your partner's qr-code, ${(provideBtn.checked ? 
                 "you can verify whether they are a useful member of your community and eligible to use your community services." : 
                 "you spread information within your community that your partner has been useful to you and eligible to use your community services.")}</small>
             </div>`;
@@ -203,6 +237,42 @@
 
             chartContainer.scrollLeft = chartContainer.scrollWidth; 
         }
+
+        function copyTextToClipboard(text) {
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    togglePassword.innerHTML = `
+                    <svg fill="#000000" width="15px" height="15px" viewBox="0 0 32 32" data-name="Layer 1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"><title/><path d="M26.61,2H10.74a2.9,2.9,0,0,0-.6.07A7.14,7.14,0,0,0,9.21,2,6.62,6.62,0,0,0,7.94,15.12V27.2a2.81,2.81,0,0,0,2.8,2.8H26.61a2.8,2.8,0,0,0,2.8-2.8V4.8A2.8,2.8,0,0,0,26.61,2ZM4.46,8.62a4.76,4.76,0,1,1,4.75,4.76A4.75,4.75,0,0,1,4.46,8.62ZM27.54,27.2a.93.93,0,0,1-.93.93H10.74a.93.93,0,0,1-.93-.93v-12a6.61,6.61,0,0,0,4-11.34h12.8a.93.93,0,0,1,.93.93Z"/><path d="M12.2,6.41a.92.92,0,0,0-1.32,0L8.44,8.86,7.54,8A.93.93,0,1,0,6.22,9.28l1.56,1.56a.93.93,0,0,0,.66.27,1,1,0,0,0,.66-.27l3.1-3.11A.92.92,0,0,0,12.2,6.41Z"/></svg>
+                    `;
+                    setTimeout(function() {
+                        togglePassword.innerHTML = `
+                    <svg fill="#000000" width="15px" height="15px" viewBox="0 0 32 32" data-name="Layer 1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"><title>Сopy to clipboard</title><path d="M27.2,8.22H23.78V5.42A3.42,3.42,0,0,0,20.36,2H5.42A3.42,3.42,0,0,0,2,5.42V20.36a3.43,3.43,0,0,0,3.42,3.42h2.8V27.2A2.81,2.81,0,0,0,11,30H27.2A2.81,2.81,0,0,0,30,27.2V11A2.81,2.81,0,0,0,27.2,8.22ZM5.42,21.91a1.55,1.55,0,0,1-1.55-1.55V5.42A1.54,1.54,0,0,1,5.42,3.87H20.36a1.55,1.55,0,0,1,1.55,1.55v2.8H11A2.81,2.81,0,0,0,8.22,11V21.91ZM28.13,27.2a.93.93,0,0,1-.93.93H11a.93.93,0,0,1-.93-.93V11a.93.93,0,0,1,.93-.93H27.2a.93.93,0,0,1,.93.93Z"/></svg>
+                    `;
+                    }, 250);
+                })
+                .catch(err => {
+                    console.error('Failed to copy content to clipboard:', err);
+                });
+        }
+        
+        function saveChanges(param, value) {
+            localStorage.setItem(param, value);
+        }
+        
+        function loadParams(){
+            let savedValue = localStorage.getItem('maxAge');
+            if (savedValue !== null) {
+                maxAge.value = savedValue;
+            }else{
+                maxAge.value = 30;
+            }
+            savedValue = localStorage.getItem('limit');
+            if (savedValue !== null) {
+                limit.value = savedValue;
+            }else{
+                limit.value = 100000;
+            }
+        }
         //events:
         navigator.serviceWorker.addEventListener("message", (event) => {
             let msg = event.data; 
@@ -251,6 +321,20 @@
             fileinput.click();
         });
         
+        togglePassword.addEventListener('click', function () {
+            copyTextToClipboard(passwordInput.value);           
+        });
+
+        maxAge.addEventListener('blur', function() {
+            saveChanges("maxAge", this.value);
+        });
+
+        limit.addEventListener('blur', function() {
+            saveChanges("limit", this.value);
+        });
+
+        loadParams();
+
         //do
         navigator.serviceWorker.register('/core-worker.js').then(registration => {
                 console.log('Core Worker registered');
