@@ -1,13 +1,13 @@
 importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinjs.min.js');
 
-const maxAge = 30, baseName = "appBase", limit = 100000,
+const baseName = "appBase",
     objectStores = 
     {
         accounts : "accounts",
         mainCount : "mainCount",
         main : "main"
     };
-var minDate = 0, dateNow = 0, websockets = [];
+var limit = 100000, maxAge = 30, minDate = 0, dateNow = 0, websockets = [];
 
 minDate = getDateIntByAge(maxAge);
 dateNow = getDateIntByAge(0);
@@ -192,6 +192,7 @@ function deleteOldKeys(){
             const cursor = event.target.result;
             if (cursor) {
                 cursor.delete();
+                cursor.continue();
             }
         };
         const keyRangeCounts = IDBKeyRange.bound(0, minDate);
@@ -201,6 +202,7 @@ function deleteOldKeys(){
             const cursor = event.target.result;
             if (cursor) {
                 cursor.delete();
+                cursor.continue();
             }
         };
     });
@@ -347,8 +349,13 @@ function sendTo(url, msg){
     }
 }
 
-
-function reload(){
+function reload(params){
+    if(params){
+        maxAge = params.maxAge;
+        limit = params.limit;
+        minDate = getDateIntByAge(maxAge);
+    }
+    deleteOldKeys();
     postMessage("WORKER_ACTIVATE", true);
     //test_load();
     getStat(function(res){
@@ -357,7 +364,6 @@ function reload(){
     getDefaultWsUri(function(res){
         sendTo(res.url, res.channelId);
     });
-    deleteOldKeys();
 }
 
 self.addEventListener('message', event => {
@@ -406,7 +412,7 @@ self.addEventListener('message', event => {
                 postMessage("SYNC_ALERT", {alert: 6});
             }
         }else if(event.data.type === "RELOAD"){
-            reload();
+            reload(event.data.data);
         }
     }
 });
@@ -414,10 +420,6 @@ self.addEventListener('message', event => {
 self.addEventListener("activate", (event) => {
     event.waitUntil(clients.claim());
 });
-
-self.onactivate = (event) => {
-    reload();
-};
 
 /* tests:
  

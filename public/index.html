@@ -129,8 +129,10 @@
             
         //func:
         function postMessage(type, data){
-            if (navigator.serviceWorker.controller) {
-                navigator.serviceWorker.controller.postMessage({ type: type, data: data });
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(registration => {
+                    registration.active.postMessage({ type: type, data: data });
+                });
             }
         }
 
@@ -256,7 +258,11 @@
         }
         
         function saveChanges(param, value) {
-            localStorage.setItem(param, value);
+            let savedValue = localStorage.getItem(param);
+            if(savedValue!==value){
+                localStorage.setItem(param, value);
+                postMessage("RELOAD", {maxAge: maxAge.value, limit: limit.value});
+            }
         }
         
         function loadParams(){
@@ -273,6 +279,7 @@
                 limit.value = 100000;
             }
         }
+        
         //events:
         navigator.serviceWorker.addEventListener("message", (event) => {
             let msg = event.data; 
@@ -338,7 +345,7 @@
         //do
         navigator.serviceWorker.register('/core-worker.js').then(registration => {
                 console.log('Core Worker registered');
-                postMessage("RELOAD", {role: 1});  
+                postMessage("RELOAD", {maxAge: maxAge.value, limit: limit.value});  
         });
     }
 </script>
