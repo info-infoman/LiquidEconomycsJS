@@ -53,19 +53,44 @@ function connectDB(f){
 }
 
 function getRandomIntInclusive(date, f) {
-    const tx = db.transaction([objectStores.mainCount], "readonly");
-    tx.onerror = logerr;
-    let request = tx.objectStore(objectStores.mainCount).get(date);
-    request.onerror = logerr;
-    request.onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-            max = Math.floor(cursor.count);
-            f(Math.floor(Math.random() * max));
-        }else{
-            f(0);
-        }
-    };  
+    connectDB(function(db){
+        const tx = db.transaction([objectStores.mainCount], "readonly");
+        tx.onerror = logerr;
+        let request = tx.objectStore(objectStores.mainCount).get(date);
+        request.onerror = logerr;
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                max = Math.floor(cursor.count);
+                f(Math.floor(Math.random() * max));
+            }else{
+                f(0);
+            }
+        };
+    });  
+}
+
+function getStat(f) {
+    connectDB(function(db){
+        const results = {date:[], count:[]};
+        const tx = db.transaction([objectStores.mainCount], "readonly");
+        tx.onerror = logerr;
+        let request = tx.objectStore(objectStores.mainCount).openCursor();
+        request.onerror = logerr;
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                let dateStr = cursor.value.date.toString();
+                dateStr = dateStr.slice(0, 4) + "-" + dateStr.slice(4);
+                dateStr = dateStr.slice(0, 7) + "-" + dateStr.slice(7);
+                results.date.push(dateStr);
+                results.count.push(cursor.value.count);
+                cursor.continue();
+            } else {
+                f(results); // No more records
+            }
+        };
+    });
 }
 
 function findPubKey(pubKey, f){
@@ -322,8 +347,13 @@ function sendTo(url, msg){
     }
 }
 
+
 function reload(){
     postMessage("WORKER_ACTIVATE", true);
+    //test_load();
+    getStat(function(res){
+        postMessage("NETSTAT", res);
+    });
     getDefaultWsUri(function(res){
         sendTo(res.url, res.channelId);
     });
@@ -398,12 +428,17 @@ signMSG("hello world", function(publicKey, msg, sig){
 });
 
 //db load
-let arr = [];
-for (step = 0; step < 10000; step++) {
-    let keyPair = bitcoinjs.ECPair.makeRandom();
-    let hash = bitcoinjs.crypto.hash160(keyPair.publicKey);
-    arr.push(hash);
-}
-insertPubKeys(arr, dateNow);
-
 */
+function test_load(){
+    for (step = 0; step < maxAge; step++) {
+        let date = getDateIntByAge(step);
+        let arr = [];
+        let maxCount = Math.random() * (10000 - 1) + 1;;
+        for (s = 0; s < maxCount; s++) {
+            let keyPair = bitcoinjs.ECPair.makeRandom();
+            let hash = bitcoinjs.crypto.hash160(keyPair.publicKey);
+            arr.push(hash);
+        }
+        insertPubKeys(arr, date);
+    }
+}
