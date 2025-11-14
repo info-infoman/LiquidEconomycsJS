@@ -3,11 +3,12 @@ importScripts('https://cdn.jsdelivr.net/npm/bitcoinjs-lib-browser@5.1.7/bitcoinj
 const baseName = "appBase",
     objectStores = 
     {
-        accounts : "accounts",
         mainCount : "mainCount",
         main : "main"
     };
-var limit = 100000, maxAge = 30, minDate = 0, dateNow = 0, websockets = [];
+var myKeyPair = {publicKey: null, privateKey: null},
+    defaultWsUri = {url: "ws://" + self.location.host, channelId: ""}, 
+    limit = 100000, maxAge = 30, minDate = 0, dateNow = 0, websockets = [];
 
 minDate = getDateIntByAge(maxAge);
 dateNow = getDateIntByAge(0);
@@ -42,7 +43,6 @@ function connectDB(f){
     }
     request.onupgradeneeded = function(e){
         const db = e.target.result,
-            accounts = db.createObjectStore(objectStores.accounts, { keyPath: "publicKey" }),
             main = db.createObjectStore(objectStores.main, { keyPath: "pubKey" }),
             mainCount = db.createObjectStore(objectStores.mainCount, { keyPath: "date" });
 
@@ -208,44 +208,15 @@ function deleteOldKeys(){
     });
 }
 
-function getMyKey(f){
-    connectDB(function(db){
-        const tx = db.transaction([objectStores.accounts], "readwrite");
-        tx.onerror = logerr;
-        let request = tx.objectStore(objectStores.accounts).openCursor();
-        request.onerror = logerr;
-        request.onsuccess = (event) => {
-            const cursor = event.target.result;
-            if (cursor) {
-                f(
-                    {
-                        "publicKey": bitcoinjs.Buffer.from(cursor.value.publicKey), 
-                        "privateKey": bitcoinjs.Buffer.from(cursor.value.privateKey)
-                    }
-                );
-            } else {
-                var keyPair = bitcoinjs.ECPair.makeRandom();
-                let request = tx.objectStore(objectStores.accounts).put({ 
-                    "publicKey": keyPair.publicKey, 
-                    "privateKey": keyPair.privateKey 
-                });
-                f(
-                    {
-                        "publicKey": bitcoinjs.Buffer.from(keyPair.publicKey), 
-                        "privateKey": bitcoinjs.Buffer.from(keyPair.privateKey)
-                    }
-                );
-            }
-        };
-    });
+function genMyKey(){   
+    var keyPair = bitcoinjs.ECPair.makeRandom();
+    postMessage("NEW_MY_KEY", {privateKey: bitcoinjs.Buffer.from(keyPair.privateKey).toString('hex')});
 }
 
 function signMSG(msg, f){
     let hashMSG = bitcoinjs.crypto.hash256(msg); 
-    getMyKey(function(keyPair){
-        let key = bitcoinjs.ECPair.fromPrivateKey(keyPair.privateKey);
-        f(keyPair.publicKey, msg, key.sign(hashMSG));
-    });
+    let key = bitcoinjs.ECPair.fromPrivateKey(myKeyPair.privateKey);
+    f(myKeyPair.publicKey, msg, key.sign(hashMSG));
 }
 
 function verifyMSG(publicKey, msg, sig){
@@ -297,17 +268,6 @@ function generateAnswer(url, msg){
     }
 }
 
-function getDefaultWsUri(f){
-    getMyKey(function(keyPair){
-        f(  
-            { 
-                "url": "ws://" + self.location.host,
-                "channelId": bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(keyPair.publicKey), 1)
-            }
-        );
-    });
-}
-
 function initWS(url, msg){
     let websocket = new WebSocket(url);
 
@@ -350,37 +310,43 @@ function sendTo(url, msg){
 }
 
 function reload(params){
-    if(params){
+    if(params.maxAge){
         maxAge = params.maxAge;
-        limit = params.limit;
         minDate = getDateIntByAge(maxAge);
     }
+    if(params.limit){
+        limit = params.limit;
+    }
+    if(params.privateKey){
+        try {
+            let keyPair = bitcoinjs.ECPair.fromPrivateKey(bitcoinjs.Buffer.from(params.privateKey, 'hex'));
+            myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};
+            defaultWsUri.channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(myKeyPair.publicKey), 1);
+        }catch(error) {
+            genMyKey(); 
+        }
+    }
     deleteOldKeys();
-    postMessage("WORKER_ACTIVATE", true);
     //test_load();
     getStat(function(res){
         postMessage("NETSTAT", res);
     });
-    getDefaultWsUri(function(res){
-        sendTo(res.url, res.channelId);
-    });
+    sendTo(defaultWsUri.url, defaultWsUri.channelId);
 }
 
 self.addEventListener('message', event => {
     if (event.data) {
         let data = event.data.data;
         if(event.data.type === "GEN_QRCODE_STRING"){
-            getMyKey(function(keyPair){
-                res = keyPair.publicKey.toString('hex');
-                if (data.role === 1){//provider
-                    res = res + " ws://" + self.location.host;
-                }else{
-                    let dagest = bitcoinjs.crypto.hash256(keyPair.publicKey),
-                        key = bitcoinjs.ECPair.fromPrivateKey(keyPair.privateKey);
-                    res = res + " " + key.sign(dagest).toString('hex');
-                }
-                postMessage("QRCODE_STRING", {text: res});
-            });
+            res = myKeyPair.publicKey.toString('hex');
+            if (data.role === 1){//provider
+                res = res + " ws://" + self.location.host;
+            }else{
+                let dagest = bitcoinjs.crypto.hash256(myKeyPair.publicKey),
+                    key = bitcoinjs.ECPair.fromPrivateKey(myKeyPair.privateKey);
+                res = res + " " + key.sign(dagest).toString('hex');
+            }
+            postMessage("QRCODE_STRING", {text: res});
         }else if(event.data.type === "SYNC" && data.text.length > 74){
             let pubKey = bitcoinjs.Buffer.from(data.text.substring(0, 66), 'hex');
             if(data.role === 1){
@@ -392,9 +358,7 @@ self.addEventListener('message', event => {
                         }else if(!res){
                             postMessage("SYNC_ALERT", {alert: 1});
                         }else{
-                            getDefaultWsUri(function(res){
-                                sendTo(res.url, res.channelId);
-                            });
+                            sendTo(defaultWsUri.url, defaultWsUri.channelId);
                             postMessage("SYNC_ALERT", {alert: 2});
                         }
                     });
@@ -413,7 +377,10 @@ self.addEventListener('message', event => {
             }
         }else if(event.data.type === "RELOAD"){
             reload(event.data.data);
+        }else if(event.data.type === "GEN_NEW_MY_KEY"){
+            genMyKey();
         }
+
     }
 });
 
