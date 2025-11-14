@@ -24,7 +24,7 @@ wss.on('connection', function connection(ws, req) {
 			});
 		}else{
 			ws.channelId = data;
-			console.log(`Create new channel ${data}`);
+			console.log(`Client entered in channel ${data}`);
 		}
 	});
 

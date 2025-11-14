@@ -371,6 +371,11 @@ self.addEventListener('message', event => {
     }
 });
 
+self.addEventListener("activate", (event) => {
+  event.waitUntil(clients.claim());
+  postMessage("WORKER_ACTIVATE", true);
+});
+
 deleteOldKeys();
 
 getDefaultWsUri(function(res){

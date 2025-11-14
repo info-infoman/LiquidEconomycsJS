@@ -171,6 +171,8 @@
                 generateQrCode(msg.data.text);
             }else if(msg.type === "SYNC_ALERT"){
                 generateAlerts(msg.data.alert);
+            }else if(msg.type === "WORKER_ACTIVATE"){
+                postMessage("GEN_QRCODE_STRING", {role: 1});
             }
         });
             
@@ -210,10 +212,9 @@
         
         //do
         navigator.serviceWorker.register('/core-worker.js').then(registration => {
-                console.log('Core Worker registered');
+                console.log('Core Worker registered');  
         });
 
-        postMessage("GEN_QRCODE_STRING", {role: 1});
     }
 </script>
 
