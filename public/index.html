@@ -82,7 +82,7 @@
                         <div class="input-group-prepend">
                             <span class="input-group-text" id="basic-addon2">Private key of your public ID</span>
                         </div>
-                        <input type="password" class="form-control" id="privateKey" aria-describedby="basic-addon2" value="0x00000000000000000000000000000000000000000000000000000000000000000000000000">
+                        <input type="password" class="form-control" id="privateKey" aria-describedby="basic-addon2" value="0x00">
                         <div class="input-group-append"></div>
                         <button type="button" class="input-group-text" id="togglePassword" title="Сopy to clipboard" tabindex="-1" aria-describedby="basic-addon2">
                             <!-- Eye Open Icon -->
@@ -295,13 +295,13 @@
         }else if(data.param === "limit"){
             limit.value = data.value;
         }else if(data.param === "privateKey"){
+            if(privateKey.value!==data.value.privateKey && privateKey.value!== "0x00"){
+                generateAlerts(7, null);
+            }
             privateKey.value = data.value.privateKey;
             providerQR.value = data.value.providerQR;
             recipientQR.value = data.value.recipientQR;
             generateQrCode();
-            if(privateKey.value!==data.value.privateKey){
-                generateAlerts(7, null);
-            }
         }
     }
 
