@@ -119,7 +119,7 @@
         </div>
 
         <div id="reader" hidden></div>
-        <input type="file" id="qr-input-file" accept="image/*" capture hidden>
+        <input type="file" id="qr-input-file" accept="image/*" hidden>
     </div>
 </div>
 
@@ -136,195 +136,198 @@
 <script src="https://rawgit.com/nnnick/Chart.js/v1.0.2/Chart.min.js"></script>
 
 <script>
-    if (!'serviceWorker' in navigator) {
-        generateAlerts(5);
-    }else{
-        //variables
-        const QrCodeContainer = document.getElementById('qrcode'),
-            html5QrCode = new Html5Qrcode("reader"),
-            provideBtn = document.getElementById('provide'),
-            acceptBtn = document.getElementById('accept'),
-            fileinput = document.getElementById('qr-input-file'), 
-            chartContainer = document.getElementById('chartContainer'),
-            privateKey = document.getElementById('privateKey'),
-            togglePassword = document.getElementById('togglePassword'),
-            limit = document.getElementById('limit'),
-            maxAge = document.getElementById('maxAge'),
-            scanBtn = document.getElementById("scan");
-            
-        //func:
-        function postMessage(type, data){
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(registration => {
-                    registration.active.postMessage({ type: type, data: data });
-                });
-            }
-        }
+    //variables
+    const QrCodeContainer = document.getElementById('qrcode'),
+        html5QrCode = new Html5Qrcode("reader"),
+        provideBtn = document.getElementById('provide'),
+        acceptBtn = document.getElementById('accept'),
+        fileinput = document.getElementById('qr-input-file'), 
+        chartContainer = document.getElementById('chartContainer'),
+        privateKey = document.getElementById('privateKey'),
+        togglePassword = document.getElementById('togglePassword'),
+        limit = document.getElementById('limit'),
+        maxAge = document.getElementById('maxAge'),
+        scanBtn = document.getElementById("scan");
 
-        function setRole(role) {
-            postMessage("GEN_QRCODE_STRING", {role: role});
-        }
-
-        function generateQrCode(QrCodeString){
-            var typeNumber = 0,
-                errorCorrectionLevel = 'L',
-                qr = qrcode(typeNumber, errorCorrectionLevel);
-            qr.addData(QrCodeString);
-            qr.make();
-            let tag = qr.createImgTag();
-            //let tag = qr.createImgTag().replaceAll("/>", `class="rounded mx-auto d-block" />`);
-            QrCodeContainer.innerHTML =  tag + `<div class="media-body">
-                <h5 class="mt-0">- Your qr-code</h5>
-            <small>By scanning your partner's qr-code, ${(provideBtn.checked ? 
-                "you can verify whether they are a useful member of your community and eligible to use your community services." : 
-                "you spread information within your community that your partner has been useful to you and eligible to use your community services.")}</small>
+    
+    //func:
+    function generateAlerts(code, err){
+        let alertElement = document.getElementById('alert');
+        if(code === 7){
+            alertElement.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                <strong>Exelent!</strong> <hr> Your new private key has been created.
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>`;
+        }else if(code === 6){
+            alertElement.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                <strong>Exelent!</strong> <hr> Your partner's benefit information has been recorded.
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>`;
+        }else if(code === 5){
+            alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Warning!</strong> <hr> Error creating application, the application must be opened from a secure context. 
+                You can add your site to the exclusion list, for this open chrome://flags/ and search for "unsafely-treat-insecure-origin-as-secure" flag, 
+                and insert your domain site(http://yourdomain:port) and enable it, also your browser must support service worker technology.
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>`;
+        }else if(code === 4){
+            alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Warning!</strong> <hr> Error scanning file. Reason: ${err}.
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>`;
+        }else if(code === 3){
+            alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Warning!</strong> <hr> Wrong data in qr-code.
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>`;
+        }else if(code === 2){
+            alertElement.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                <strong>Exelent!</strong> <hr> Your partner has helped your community. You can help him too.
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                </div>`;
+        }else if(code === 1){
+            alertElement.innerHTML = `<div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <strong>Attention!</strong> <hr> Your partner has not been helping your community. This is probably a new member of the community.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
             </div>`;
         }
-
-        function generateAlerts(code, err){
-            let alertElement = document.getElementById('alert');
-            if(code === 7){
-                alertElement.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <strong>Exelent!</strong> <hr> Your new private key has been created.
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                    </div>`;
-            }else if(code === 6){
-                alertElement.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <strong>Exelent!</strong> <hr> Your partner's benefit information has been recorded.
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                    </div>`;
-            }else if(code === 5){
-                alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Warning!</strong> <hr> Your browser does not support this application.
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                    </div>`;
-            }else if(code === 4){
-                alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Warning!</strong> <hr> Error scanning file. Reason: ${err}.
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                    </div>`;
-            }else if(code === 3){
-                alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Warning!</strong> <hr> Wrong data in qr-code.
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                    </div>`;
-            }else if(code === 2){
-                alertElement.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <strong>Exelent!</strong> <hr> Your partner has helped your community. You can help him too.
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                    </div>`;
-            }else if(code === 1){
-                alertElement.innerHTML = `<div class="alert alert-warning alert-dismissible fade show" role="alert">
-                <strong>Attention!</strong> <hr> Your partner has not been helping your community. This is probably a new member of the community.
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-                </div>`;
-            }
-            else if(code === 0){
-                alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <strong>Warning!</strong> <hr> Your partner is not the owner of the verified ID. He might be trying to deceive you.
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-                </div>`;
-            }
+        else if(code === 0){
+            alertElement.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Warning!</strong> <hr> Your partner is not the owner of the verified ID. He might be trying to deceive you.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            </div>`;
         }
+    }
 
-        function buildCharts(data){
-            var ctx = document.getElementById("myChart").getContext("2d");
-
-            var data = {
-                labels: data.date,
-                datasets: [
-                    {
-                        label: "My Second dataset",
-                        fillColor: "rgba(151,187,205,0.2)",
-                        strokeColor: "rgba(151,187,205,1)",
-                        pointColor: "rgba(151,187,205,1)",
-                        pointStrokeColor: "#fff",
-                        pointHighlightFill: "#fff",
-                        pointHighlightStroke: "rgba(151,187,205,1)",
-                        data: data.count
-                    }
-                ]
-            };
-
-            new Chart(ctx).Line(data, {
-                onAnimationComplete: function () {
-                    var sourceCanvas = this.chart.ctx.canvas;
-                    var copyWidth = this.scale.xScalePaddingLeft - 5;
-                }
+    function postMessage(type, data){
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.active.postMessage({ type: type, data: data });
             });
-
-            chartContainer.scrollLeft = chartContainer.scrollWidth; 
         }
+    }
 
-        function copyTextToClipboard(text) {
-            navigator.clipboard.writeText(text)
-                .then(() => {
-                    togglePassword.innerHTML = `
-                    <svg fill="#000000" width="15px" height="15px" viewBox="0 0 32 32" data-name="Layer 1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"><title/><path d="M26.61,2H10.74a2.9,2.9,0,0,0-.6.07A7.14,7.14,0,0,0,9.21,2,6.62,6.62,0,0,0,7.94,15.12V27.2a2.81,2.81,0,0,0,2.8,2.8H26.61a2.8,2.8,0,0,0,2.8-2.8V4.8A2.8,2.8,0,0,0,26.61,2ZM4.46,8.62a4.76,4.76,0,1,1,4.75,4.76A4.75,4.75,0,0,1,4.46,8.62ZM27.54,27.2a.93.93,0,0,1-.93.93H10.74a.93.93,0,0,1-.93-.93v-12a6.61,6.61,0,0,0,4-11.34h12.8a.93.93,0,0,1,.93.93Z"/><path d="M12.2,6.41a.92.92,0,0,0-1.32,0L8.44,8.86,7.54,8A.93.93,0,1,0,6.22,9.28l1.56,1.56a.93.93,0,0,0,.66.27,1,1,0,0,0,.66-.27l3.1-3.11A.92.92,0,0,0,12.2,6.41Z"/></svg>
-                    `;
-                    setTimeout(function() {
-                        togglePassword.innerHTML = `
-                    <svg fill="#000000" width="15px" height="15px" viewBox="0 0 32 32" data-name="Layer 1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"><title>Сopy to clipboard</title><path d="M27.2,8.22H23.78V5.42A3.42,3.42,0,0,0,20.36,2H5.42A3.42,3.42,0,0,0,2,5.42V20.36a3.43,3.43,0,0,0,3.42,3.42h2.8V27.2A2.81,2.81,0,0,0,11,30H27.2A2.81,2.81,0,0,0,30,27.2V11A2.81,2.81,0,0,0,27.2,8.22ZM5.42,21.91a1.55,1.55,0,0,1-1.55-1.55V5.42A1.54,1.54,0,0,1,5.42,3.87H20.36a1.55,1.55,0,0,1,1.55,1.55v2.8H11A2.81,2.81,0,0,0,8.22,11V21.91ZM28.13,27.2a.93.93,0,0,1-.93.93H11a.93.93,0,0,1-.93-.93V11a.93.93,0,0,1,.93-.93H27.2a.93.93,0,0,1,.93.93Z"/></svg>
-                    `;
-                    }, 250);
-                })
-                .catch(err => {
-                    console.error('Failed to copy content to clipboard:', err);
-                });
-        }
-        
-        function saveChanges(param, value) {
-            let savedValue = localStorage.getItem(param);
-            if(savedValue!==value){
-                localStorage.setItem(param, value);
-                if(param === "maxAge"){
-                    postMessage("RELOAD", {maxAge: value});
-                }else if(param === "limit"){
-                    postMessage("RELOAD", {limit: value});
-                }else if(param === "privateKey"){
-                    postMessage("RELOAD", {privateKey: (value === "" ? " " : value)});
+    function setRole(role) {
+        postMessage("GEN_QRCODE_STRING", {role: role});
+    }
+
+    function generateQrCode(QrCodeString){
+        var typeNumber = 0,
+            errorCorrectionLevel = 'L',
+            qr = qrcode(typeNumber, errorCorrectionLevel);
+        qr.addData(QrCodeString);
+        qr.make();
+        let tag = qr.createImgTag();
+        //let tag = qr.createImgTag().replaceAll("/>", `class="rounded mx-auto d-block" />`);
+        QrCodeContainer.innerHTML =  tag + `<div class="media-body">
+            <h5 class="mt-0">- Your qr-code</h5>
+        <small>By scanning your partner's qr-code, ${(provideBtn.checked ? 
+            "you can verify whether they are a useful member of your community and eligible to use your community services." : 
+            "you spread information within your community that your partner has been useful to you and eligible to use your community services.")}</small>
+        </div>`;
+    }
+
+    function buildCharts(data){
+        var ctx = document.getElementById("myChart").getContext("2d");
+
+        var data = {
+            labels: data.date,
+            datasets: [
+                {
+                    label: "My Second dataset",
+                    fillColor: "rgba(151,187,205,0.2)",
+                    strokeColor: "rgba(151,187,205,1)",
+                    pointColor: "rgba(151,187,205,1)",
+                    pointStrokeColor: "#fff",
+                    pointHighlightFill: "#fff",
+                    pointHighlightStroke: "rgba(151,187,205,1)",
+                    data: data.count
                 }
+            ]
+        };
+
+        new Chart(ctx).Line(data, {
+            onAnimationComplete: function () {
+                var sourceCanvas = this.chart.ctx.canvas;
+                var copyWidth = this.scale.xScalePaddingLeft - 5;
+            }
+        });
+
+        chartContainer.scrollLeft = chartContainer.scrollWidth; 
+    }
+
+    function copyTextToClipboard(text) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                togglePassword.innerHTML = `
+                <svg fill="#000000" width="15px" height="15px" viewBox="0 0 32 32" data-name="Layer 1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"><title/><path d="M26.61,2H10.74a2.9,2.9,0,0,0-.6.07A7.14,7.14,0,0,0,9.21,2,6.62,6.62,0,0,0,7.94,15.12V27.2a2.81,2.81,0,0,0,2.8,2.8H26.61a2.8,2.8,0,0,0,2.8-2.8V4.8A2.8,2.8,0,0,0,26.61,2ZM4.46,8.62a4.76,4.76,0,1,1,4.75,4.76A4.75,4.75,0,0,1,4.46,8.62ZM27.54,27.2a.93.93,0,0,1-.93.93H10.74a.93.93,0,0,1-.93-.93v-12a6.61,6.61,0,0,0,4-11.34h12.8a.93.93,0,0,1,.93.93Z"/><path d="M12.2,6.41a.92.92,0,0,0-1.32,0L8.44,8.86,7.54,8A.93.93,0,1,0,6.22,9.28l1.56,1.56a.93.93,0,0,0,.66.27,1,1,0,0,0,.66-.27l3.1-3.11A.92.92,0,0,0,12.2,6.41Z"/></svg>
+                `;
+                setTimeout(function() {
+                    togglePassword.innerHTML = `
+                <svg fill="#000000" width="15px" height="15px" viewBox="0 0 32 32" data-name="Layer 1" id="Layer_1" xmlns="http://www.w3.org/2000/svg"><title>Сopy to clipboard</title><path d="M27.2,8.22H23.78V5.42A3.42,3.42,0,0,0,20.36,2H5.42A3.42,3.42,0,0,0,2,5.42V20.36a3.43,3.43,0,0,0,3.42,3.42h2.8V27.2A2.81,2.81,0,0,0,11,30H27.2A2.81,2.81,0,0,0,30,27.2V11A2.81,2.81,0,0,0,27.2,8.22ZM5.42,21.91a1.55,1.55,0,0,1-1.55-1.55V5.42A1.54,1.54,0,0,1,5.42,3.87H20.36a1.55,1.55,0,0,1,1.55,1.55v2.8H11A2.81,2.81,0,0,0,8.22,11V21.91ZM28.13,27.2a.93.93,0,0,1-.93.93H11a.93.93,0,0,1-.93-.93V11a.93.93,0,0,1,.93-.93H27.2a.93.93,0,0,1,.93.93Z"/></svg>
+                `;
+                }, 250);
+            })
+            .catch(err => {
+                console.error('Failed to copy content to clipboard:', err);
+            });
+    }
+    
+    function saveChanges(param, value) {
+        let savedValue = localStorage.getItem(param);
+        if(savedValue!==value){
+            localStorage.setItem(param, value);
+            if(param === "maxAge"){
+                postMessage("RELOAD", {maxAge: value});
+            }else if(param === "limit"){
+                postMessage("RELOAD", {limit: value});
+            }else if(param === "privateKey"){
+                postMessage("RELOAD", {privateKey: (value === "" ? " " : value)});
             }
         }
-        
-        function loadParams(){
-            let savedValue = localStorage.getItem('maxAge');
-            if (savedValue !== null) {
-                maxAge.value = savedValue;
-            }else{
-                maxAge.value = 30;
-            }
-            savedValue = localStorage.getItem('limit');
-            if (savedValue !== null) {
-                limit.value = savedValue;
-            }else{
-                limit.value = 100000;
-            }
-            savedValue = localStorage.getItem('privateKey');
-            if (savedValue !== null && savedValue !== "") {
-                privateKey.value = savedValue;
-            }else{
-                privateKey.value = "";
-                postMessage("GEN_NEW_MY_KEY", null);
-            }
+    }
+    
+    function loadParams(){
+        let savedValue = localStorage.getItem('maxAge');
+        if (savedValue !== null) {
+            maxAge.value = savedValue;
+        }else{
+            maxAge.value = 30;
         }
-        
+        savedValue = localStorage.getItem('limit');
+        if (savedValue !== null) {
+            limit.value = savedValue;
+        }else{
+            limit.value = 100000;
+        }
+        savedValue = localStorage.getItem('privateKey');
+        if (savedValue !== null && savedValue !== "") {
+            privateKey.value = savedValue;
+        }else{
+            privateKey.value = "";
+            postMessage("GEN_NEW_MY_KEY", null);
+        }
+    }
+
+    if (!'serviceWorker' in navigator || !window.isSecureContext) {
+        generateAlerts(5);
+    }else{
         //events:
         navigator.serviceWorker.addEventListener("message", (event) => {
             let msg = event.data; 
