@@ -64,7 +64,7 @@
                         <div class="input-group-prepend">
                             <span class="input-group-text" id="basic-addon0">How many days store member IDs</span>
                         </div>
-                        <input type="text" class="form-control" id="maxAge" aria-describedby="basic-addon0">
+                        <input type="number" class="form-control" id="maxAge" aria-describedby="basic-addon0">
                     </div>
                 </li>
                 &nbsp;
@@ -73,7 +73,7 @@
                         <div class="input-group-prepend">
                             <span class="input-group-text" id="basic-addon1">How many IDs update per day</span>
                         </div>
-                        <input type="text" class="form-control" id="limit" aria-describedby="basic-addon1">
+                        <input type="number" class="form-control" id="limit" aria-describedby="basic-addon1">
                     </div>
                 </li>
                 &nbsp;
@@ -120,6 +120,8 @@
 
         <div id="reader" hidden></div>
         <input type="file" id="qr-input-file" accept="image/*" hidden>
+        <input type="text" id="providerQR" hidden>
+        <input type="text" id="recipientQR" hidden>
     </div>
 </div>
 
@@ -138,6 +140,8 @@
 <script>
     //variables
     const QrCodeContainer = document.getElementById('qrcode'),
+        providerQR = document.getElementById('providerQR'),
+        recipientQR = document.getElementById('recipientQR'),
         html5QrCode = new Html5Qrcode("reader"),
         provideBtn = document.getElementById('provide'),
         acceptBtn = document.getElementById('accept'),
@@ -223,15 +227,11 @@
         }
     }
 
-    function setRole(role) {
-        postMessage("GEN_QRCODE_STRING", {role: role});
-    }
-
-    function generateQrCode(QrCodeString){
+    function generateQrCode(){
         var typeNumber = 0,
             errorCorrectionLevel = 'L',
             qr = qrcode(typeNumber, errorCorrectionLevel);
-        qr.addData(QrCodeString);
+        qr.addData((provideBtn.checked ? providerQR.value : recipientQR.value));
         qr.make();
         let tag = qr.createImgTag();
         //let tag = qr.createImgTag().replaceAll("/>", `class="rounded mx-auto d-block" />`);
@@ -288,40 +288,20 @@
                 console.error('Failed to copy content to clipboard:', err);
             });
     }
-    
-    function saveChanges(param, value) {
-        let savedValue = localStorage.getItem(param);
-        if(savedValue!==value){
-            localStorage.setItem(param, value);
-            if(param === "maxAge"){
-                postMessage("RELOAD", {maxAge: value});
-            }else if(param === "limit"){
-                postMessage("RELOAD", {limit: value});
-            }else if(param === "privateKey"){
-                postMessage("RELOAD", {privateKey: (value === "" ? " " : value)});
+
+    function setSettings(data){
+        if(data.param === "maxAge"){
+            maxAge.value = data.value;
+        }else if(data.param === "limit"){
+            limit.value = data.value;
+        }else if(data.param === "privateKey"){
+            privateKey.value = data.value.privateKey;
+            providerQR.value = data.value.providerQR;
+            recipientQR.value = data.value.recipientQR;
+            generateQrCode();
+            if(privateKey.value!==data.value.privateKey){
+                generateAlerts(7, null);
             }
-        }
-    }
-    
-    function loadParams(){
-        let savedValue = localStorage.getItem('maxAge');
-        if (savedValue !== null) {
-            maxAge.value = savedValue;
-        }else{
-            maxAge.value = 30;
-        }
-        savedValue = localStorage.getItem('limit');
-        if (savedValue !== null) {
-            limit.value = savedValue;
-        }else{
-            limit.value = 100000;
-        }
-        savedValue = localStorage.getItem('privateKey');
-        if (savedValue !== null && savedValue !== "") {
-            privateKey.value = savedValue;
-        }else{
-            privateKey.value = "";
-            postMessage("GEN_NEW_MY_KEY", null);
         }
     }
 
@@ -331,25 +311,21 @@
         //events:
         navigator.serviceWorker.addEventListener("message", (event) => {
             let msg = event.data; 
-            if(msg.type === "QRCODE_STRING"){
-                generateQrCode(msg.data.text);
-            }else if(msg.type === "SYNC_ALERT"){
+            if(msg.type === "SYNC_ALERT"){
                 generateAlerts(msg.data.alert);
-            }else if(msg.type === "NEW_MY_KEY"){
-                saveChanges("privateKey", msg.data.privateKey);
-                generateAlerts(7, null);
-                privateKey.value = msg.data.privateKey;
+            }else if(msg.type === "SETTINGS"){
+                setSettings(msg.data);
             }else if(msg.type === "NETSTAT"){
                 buildCharts(msg.data);
             }
         });
             
         provideBtn.addEventListener('click', function(event) {
-            setRole(1);
+            generateQrCode();
         });
 
         acceptBtn.addEventListener('click', function(event) {
-            setRole(0);
+            generateQrCode();
         });
 
         fileinput.addEventListener('change', e => {
@@ -383,24 +359,21 @@
         });
 
         maxAge.addEventListener('blur', function() {
-            saveChanges("maxAge", this.value);
+            postMessage("INIT", {maxAge: this.value});
         });
 
         limit.addEventListener('blur', function() {
-            saveChanges("limit", this.value);
+            postMessage("INIT", {limit: this.value});
         });
 
         privateKey.addEventListener('blur', function() {
-            saveChanges("privateKey", this.value);
+            postMessage("INIT", {privateKey: this.value});
         });
-
-        loadParams();
 
         //do
         navigator.serviceWorker.register('/core-worker.js').then(registration => {
                 console.log('Core Worker registered');
-                postMessage("RELOAD", {maxAge: maxAge.value, limit: limit.value, privateKey: (privateKey.value === "" ? " " : privateKey.value)}); 
-                postMessage("GEN_QRCODE_STRING", {role: 1}); 
+                postMessage("INIT", null); 
         });
     }
 </script>
