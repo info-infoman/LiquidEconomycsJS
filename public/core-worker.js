@@ -312,7 +312,6 @@ function constructor(){
         limit = params.limit, maxAge = params.maxAge;
         if(!params.maxAge || params.maxAge === 0){
             maxAge = 30;
-            minDate = getDateIntByAge(maxAge);
             setSettings("maxAge", maxAge);
         }else{
             postMessage("SETTINGS", { param: "maxAge", value: maxAge });
@@ -335,15 +334,17 @@ function constructor(){
             myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};
             setSettings("privateKey", myKeyPair.privateKey);
         }
-        defaultWsUri.channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(myKeyPair.publicKey), 1);
-    });
 
-    //test_load();
-    deleteOldKeys();
-    getStat(function(res){
-        postMessage("NETSTAT", res);
+        minDate = getDateIntByAge(maxAge);
+        defaultWsUri.channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(myKeyPair.publicKey), 1);
+
+        //test_load();
+        deleteOldKeys();
+        getStat(function(res){
+            postMessage("NETSTAT", res);
+        });
+        sendTo(defaultWsUri.url, defaultWsUri.channelId);
     });
-    sendTo(defaultWsUri.url, defaultWsUri.channelId);
 }
 
 function updateSettings(params){
@@ -431,7 +432,7 @@ function test_load(){
     for (step = 0; step < maxAge; step++) {
         let date = getDateIntByAge(step);
         let arr = [];
-        let maxCount = Math.random() * (10000 - 1) + 1;;
+        let maxCount = Math.random() * (10000 - 1) + 1;
         for (s = 0; s < maxCount; s++) {
             let keyPair = bitcoinjs.ECPair.makeRandom();
             let hash = bitcoinjs.crypto.hash160(keyPair.publicKey);
