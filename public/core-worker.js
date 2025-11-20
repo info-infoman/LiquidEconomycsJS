@@ -232,7 +232,7 @@ msgType(1byte) + age(1byte)
 */
 function generateAnswer(url, msg){
     let ws = getWSByUrl(url);
-    if(bitcoinjs.Buffer.byteLength(msg) >= 1){
+    if(msg.byteLength >= 1){
         let request = [],
             age = bitcoinjs.Buffer.from(msg, 1, 1);
         if(age[0] >= 0 && age[0] <= maxAge){
@@ -248,18 +248,19 @@ function generateAnswer(url, msg){
                         sendTo(url, bitcoinjs.Buffer.concat(request));
                     });
                 });   
-            }else if(ws.lastAge === age[0] && ws.channelId !== myKeyPair.publicKey){
-                if(verifyMSG(ws.channelId, bitcoinjs.Buffer.from(msg, 0, msg.byteLength - 64), bitcoinjs.Buffer.from(msg, msg.byteLength - 64, msg.byteLength))){
-                    let pubKeys = [];
-                    for (let i = 0; i < limit || 2 + (i * 20) > msg.byteLength - 64; i++) {
-                        pubKeys.push(bitcoinjs.Buffer.from(msg, 2 + (i * 20), 20));
+            }else{
+                if(ws.lastAge === age[0] && msg.byteLength >= 85){
+                    if(verifyMSG(ws.channelId, bitcoinjs.Buffer.from(msg, 0, msg.byteLength - 64), bitcoinjs.Buffer.from(msg, msg.byteLength - 64, msg.byteLength))){
+                        let pubKeys = [];
+                        for (let i = 0; i < limit || 2 + (i * 20) > msg.byteLength - 64; i++) {
+                            pubKeys.push(bitcoinjs.Buffer.from(msg, 2 + (i * 20), 20));
+                        }
+                        insertPubKeys(pubKeys, date);
+                        let nextAge = new Uint8Array(1);
+                        nextAge.fill(ws.lastAge + 1);
+                        ws.lastAge = nextAge[0];
+                        sendTo(url, bitcoinjs.Buffer.from(nextAge, 0, 1));  
                     }
-                    insertPubKeys(pubKeys, date);
-                    let nextAge = new Uint8Array(1);
-                    nextAge.fill(ws.lastAge + 1);
-                    request.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
-                    ws.lastAge = ws.lastAge + 1;
-                    sendTo(url, bitcoinjs.Buffer.concat(request));  
                 }
             }
         }
