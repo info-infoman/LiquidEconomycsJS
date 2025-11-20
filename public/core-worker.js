@@ -211,10 +211,10 @@ function deleteOldKeys(){
     });
 }
 
-function signMSG(msg, f){
+function signMSG(msg){
     let hashMSG = bitcoinjs.crypto.hash256(msg); 
     let key = bitcoinjs.ECPair.fromPrivateKey(myKeyPair.privateKey);
-    f(myKeyPair.publicKey, msg, key.sign(hashMSG));
+    return key.sign(hashMSG);
 }
 
 function verifyMSG(publicKey, msg, sig){
@@ -231,36 +231,36 @@ From consumer service:
 msgType(1byte) + age(1byte)
 */
 function generateAnswer(url, msg){
-    if(bitcoinjs.Buffer.byteLength(msg) >= 2){
+    let ws = getWSByUrl(url);
+    if(bitcoinjs.Buffer.byteLength(msg) >= 1){
         let request = [],
-            getHashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(0), 0, 1),
-            hashs = bitcoinjs.Buffer.from(new Uint8Array(1).fill(1), 0, 1),
-            msgType = bitcoinjs.Buffer.from(msg, 0, 1),
             age = bitcoinjs.Buffer.from(msg, 1, 1);
         if(age[0] >= 0 && age[0] <= maxAge){
             let date = getDateIntByAge(age[0]);
-            if (msgType === getHashs){
-                request.push(hashs);
+            if (ws.channelId === myKeyPair.publicKey){
                 request.push(age);
                 getRandomIntInclusive(date, function(offset){
                     getPubKeys(date, offset, limit, function(arr){
                         for (let i = 0; i < arr.length; i++) {
                             request.push(bitcoinjs.Buffer.from(arr[i]));
                         }
-                        sendTo(url, bitcoinjs.Buffer.concat(request)); 
+                        request.push(signMSG(request));
+                        sendTo(url, bitcoinjs.Buffer.concat(request));
                     });
                 });   
-            }else{
-                let pubKeys = [];
-                for (let i = 0; i < limit || 2 + (i * 20) > msg.byteLength; i++) {
-                    pubKeys.push(bitcoinjs.Buffer.from(msg, 2 + (i * 20), 20));
+            }else if(ws.lastAge === age[0] && ws.channelId !== myKeyPair.publicKey){
+                if(verifyMSG(ws.channelId, bitcoinjs.Buffer.from(msg, 0, msg.byteLength - 64), bitcoinjs.Buffer.from(msg, msg.byteLength - 64, msg.byteLength))){
+                    let pubKeys = [];
+                    for (let i = 0; i < limit || 2 + (i * 20) > msg.byteLength - 64; i++) {
+                        pubKeys.push(bitcoinjs.Buffer.from(msg, 2 + (i * 20), 20));
+                    }
+                    insertPubKeys(pubKeys, date);
+                    let nextAge = new Uint8Array(1);
+                    nextAge.fill(ws.lastAge + 1);
+                    request.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
+                    ws.lastAge = ws.lastAge + 1;
+                    sendTo(url, bitcoinjs.Buffer.concat(request));  
                 }
-                insertPubKeys(pubKeys, date);
-                let nextAge = new Uint8Array(1);
-                nextAge.fill(age[0] + 1);
-                request.push(getHashs);
-                request.push(bitcoinjs.Buffer.from(nextAge, 0, 1));
-                sendTo(url, bitcoinjs.Buffer.concat(request));  
             }
         }
     }
@@ -271,7 +271,7 @@ function initWS(url, msg){
 
     websocket.addEventListener("open", () => {
         logerr("CONNECTED");
-        websockets.push({url: url, websocket: websocket});
+        websockets.push({url: url, channelId: bitcoinjs.address.fromBase58Check(msg).publicKey, websocket: websocket, lastAge: 0});
         //set channel id
         send(websocket, msg);
     });
@@ -299,12 +299,16 @@ function send(websocket, msg){
 }
 
 function sendTo(url, msg){
-    let item = websockets.find(item => item.url === url);
+    let item = getWSByUrl(url);
     if (item === undefined){
         initWS(url, msg);
     }else{
         send(item.websocket, msg);
     }
+}
+
+function getWSByUrl(url){
+    return websockets.find(item => item.url === url);
 }
 
 function constructor(){
