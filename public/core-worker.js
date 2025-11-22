@@ -234,7 +234,7 @@ function generateAnswer(url, msg){
     let ws = getWSByUrl(url);
     if(msg.byteLength >= 1){
         let request = [],
-            age = bitcoinjs.Buffer.from(msg, 1, 1);
+            age = bitcoinjs.Buffer.from(msg, 0, 1);
         if(age[0] >= 0 && age[0] <= maxAge){
             let date = getDateIntByAge(age[0]);
             if (ws.channelId === myKeyPair.publicKey){
@@ -252,8 +252,8 @@ function generateAnswer(url, msg){
                 if(ws.lastAge === age[0] && msg.byteLength >= 85){
                     if(verifyMSG(ws.channelId, bitcoinjs.Buffer.from(msg, 0, msg.byteLength - 64), bitcoinjs.Buffer.from(msg, msg.byteLength - 64, msg.byteLength))){
                         let pubKeys = [];
-                        for (let i = 0; i < limit || 2 + (i * 20) > msg.byteLength - 64; i++) {
-                            pubKeys.push(bitcoinjs.Buffer.from(msg, 2 + (i * 20), 20));
+                        for (let i = 0; i < limit && 1 + (i * 20) < msg.byteLength - 64; i++) {
+                            pubKeys.push(bitcoinjs.Buffer.from(msg, 1 + (i * 20), 20));
                         }
                         insertPubKeys(pubKeys, date);
                         let nextAge = new Uint8Array(1);
@@ -272,7 +272,7 @@ function initWS(url, msg){
 
     websocket.addEventListener("open", () => {
         logerr("CONNECTED");
-        websockets.push({url: url, channelId: bitcoinjs.address.fromBase58Check(msg).publicKey, websocket: websocket, lastAge: 0});
+        websockets.push({url: url, channelId: bitcoinjs.Buffer.from(msg, 'hex'), websocket: websocket, lastAge: 0});
         //set channel id
         send(websocket, msg);
     });
@@ -341,7 +341,7 @@ function constructor(){
         }
 
         minDate = getDateIntByAge(maxAge);
-        defaultWsUri.channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(myKeyPair.publicKey), 1);
+        defaultWsUri.channelId = myKeyPair.publicKey.toString('hex');
 
         //test_load();
         deleteOldKeys();
