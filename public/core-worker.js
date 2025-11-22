@@ -332,7 +332,7 @@ function constructor(){
             keyPair = bitcoinjs.ECPair.fromPrivateKey(bitcoinjs.Buffer.from(params.privateKey));
             myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};           
             if(keyPair){
-                postMessage("SETTINGS", { param: "privateKey", value: genQRString(myKeyPair.privateKey.toString('hex')) });
+                postMessage("SETTINGS", { param: "privateKey", value: genQRString(myKeyPair.privateKey) });
             }
         }catch(error) {
             keyPair = bitcoinjs.ECPair.makeRandom();
