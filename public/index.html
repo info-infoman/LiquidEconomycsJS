@@ -59,6 +59,16 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
+                &nbsp;
+                <li class="nav-item">
+                    <div class="input-group input-group-sm">
+                        <div class="custom-control custom-switch">
+                            <input type="checkbox" class="custom-control-input" disabled id="ScanSwitch" >
+                            <label class="custom-control-label" for="ScanSwitch">Scan qr-code from camera</label>
+                        </div>
+                    </div>
+                </li>
+                &nbsp;
                 <li class="nav-item active">
                     <div class="input-group input-group-sm">
                         <div class="input-group-prepend">
@@ -91,6 +101,7 @@
                         </div>
                     </div>
                 </li>
+                
             </ul>
         </div>
     </nav>
@@ -108,6 +119,7 @@
         </div>
         <hr>
         <div id="qrcode" class="media"></div>
+        
         <div id="alert"></div>
         <p><button type="button" class="btn btn-primary btn-block" id="scan">Scan partner qr-code</button></p>
     
@@ -132,17 +144,17 @@
 
 <!-- Qrcode -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.2/qr-scanner.legacy.min.js" type="text/javascript"></script>
 
 <!-- Charts -->
 <script src="https://rawgit.com/nnnick/Chart.js/v1.0.2/Chart.min.js"></script>
+
 
 <script>
     //variables
     const QrCodeContainer = document.getElementById('qrcode'),
         providerQR = document.getElementById('providerQR'),
         recipientQR = document.getElementById('recipientQR'),
-        html5QrCode = new Html5Qrcode("reader"),
         provideBtn = document.getElementById('provide'),
         acceptBtn = document.getElementById('accept'),
         fileinput = document.getElementById('qr-input-file'), 
@@ -151,9 +163,14 @@
         togglePassword = document.getElementById('togglePassword'),
         limit = document.getElementById('limit'),
         maxAge = document.getElementById('maxAge'),
+        ScanSwitch = document.getElementById('ScanSwitch'),
         scanBtn = document.getElementById("scan");
-
     
+    let scanner = null;
+    
+
+    QrScanner.hasCamera().then(hasCamera => ScanSwitch.disabled = !hasCamera);
+
     //func:
     function generateAlerts(code, err){
         let alertElement = document.getElementById('alert');
@@ -305,6 +322,17 @@
         }
     }
 
+    function setScanResult(result){
+        generateQrCode(); 
+        postMessage("SYNC", {role: (provideBtn.checked ? 1 : 0), text: result})
+    }
+
+    function stopScaner(){
+        if (scanner){
+            scanner.stop();
+        }
+    }
+
     if (!'serviceWorker' in navigator || !window.isSecureContext) {
         generateAlerts(5);
     }else{
@@ -321,10 +349,12 @@
         });
             
         provideBtn.addEventListener('click', function(event) {
+            stopScaner();
             generateQrCode();
         });
 
         acceptBtn.addEventListener('click', function(event) {
+            stopScaner();
             generateQrCode();
         });
 
@@ -337,22 +367,26 @@
 
             const imageFile = e.target.files[0];
             // Scan QR Code
-            html5QrCode.scanFile(imageFile, true)
-            .then(decodedText => {
-                // success, use decodedText
-                postMessage("SYNC", {role: (provideBtn.checked ? 1 : 0), text: decodedText});
-                fileinput.value = '';
-                console.log(decodedText);
-            })
-            .catch(err => {
-                // failure, handle it.
-                generateAlerts(4, err);
-                console.log(`Error scanning file. Reason: ${err}`)
-            });
+             QrScanner.scanImage(imageFile, { returnDetailedScanResult: true })
+            .then(result => postMessage("SYNC", {role: (provideBtn.checked ? 1 : 0), text: result}))
+            .catch(e => generateAlerts(4, e));
         });
 
         scanBtn.addEventListener("click", function () {
-            fileinput.click();
+            if (ScanSwitch.checked){
+                QrCodeContainer.innerHTML = `<video id="qr-video"></video>`;
+                const video = document.getElementById('qr-video'),
+                    scanner = new QrScanner(video, result => setScanResult(result), {
+                        onDecodeError: error => {
+                            generateAlerts(4, error);
+                        },
+                        highlightScanRegion: true,
+                        highlightCodeOutline: true,
+                    });
+                scanner.start();
+            }else{
+                fileinput.click();
+            }
         });
         
         togglePassword.addEventListener('click', function () {

@@ -152,11 +152,8 @@ function insertPubKeys(pubKeys, date){
                 if (!cursor || cursor.value.date < date) {
                     let request = tx.objectStore(objectStores.main).put({ "pubKey": pubKey, "date": date });
                     request.onerror = logerr;
-                    request.onsuccess = (event) => {
-                        const cursor = event.target.result;
-                        if (cursor) {
-                            count++;
-                        }
+                    request.onsuccess = () => {
+                        count++;
                     };
                 }
             };
@@ -198,8 +195,7 @@ function deleteOldKeys(){
                 cursor.continue();
             }
         };
-        const keyRangeCounts = IDBKeyRange.bound(0, minDate);
-        let requestCounts = tx.objectStore(objectStores.mainCount).openCursor(keyRangeCounts);
+        let requestCounts = tx.objectStore(objectStores.mainCount).openCursor(keyRange);
         requestCounts.onerror = logerr;
         requestCounts.onsuccess = (event) => {
             const cursor = event.target.result;
