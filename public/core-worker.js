@@ -9,7 +9,7 @@ const baseName = "appBase",
     };
 
 var myKeyPair = {publicKey: null, privateKey: null},
-    defaultWsUri = {url: "ws://" + self.location.host, channelId: ""}, 
+    defaultWsUri = {url: "ws://" + self.location.host, channelId: null}, 
     limit = 0, maxAge = 0, minDate = 0, dateNow = 0, websockets = [];
 
 function logerr(err){
@@ -453,7 +453,7 @@ self.addEventListener('message', event => {
             if(data.role === 1){
                 if(data.text.length === 195){
                     let sig = bitcoinjs.Buffer.from(data.text.substring(67), 'hex');
-                    findPubKey(pubKey, function(res){
+                    findPubKey(bitcoinjs.crypto.hash160(pubKey), function(res){
                         if(!verifyMSG(pubKey, pubKey, sig)){
                             postMessage("SYNC_ALERT", {alert: 0});
                         }else if(!res){
@@ -467,13 +467,13 @@ self.addEventListener('message', event => {
                     postMessage("SYNC_ALERT", {alert: 3});
                 }
             }else{
-                insertPubKeys([pubKey], dateNow);
+                insertPubKeys([bitcoinjs.crypto.hash160(pubKey)], dateNow);
                 
                 let url = data.text.substring(67),
-                    channelId = bitcoinjs.address.toBase58Check(bitcoinjs.crypto.hash160(pubKey), 1);
+                    channelId = pubKey.toString('hex');
                     
                 sendTo(url, channelId);
-                sendTo(url, bitcoinjs.Buffer.from(new Uint8Array(2).fill(0), 0, 2));
+                sendTo(url, bitcoinjs.Buffer.from(new Uint8Array(1).fill(0), 0, 1));
                 postMessage("SYNC_ALERT", {alert: 6});
             }
         }else if(event.data.type === "INIT"){

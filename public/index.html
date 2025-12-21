@@ -324,7 +324,7 @@
 
     function setScanResult(result){
         generateQrCode(); 
-        postMessage("SYNC", {role: (provideBtn.checked ? 1 : 0), text: result})
+        postMessage("SYNC", {role: (provideBtn.checked ? 1 : 0), text: result.data})
     }
 
     function stopScaner(){
@@ -368,7 +368,7 @@
             const imageFile = e.target.files[0];
             // Scan QR Code
              QrScanner.scanImage(imageFile, { returnDetailedScanResult: true })
-            .then(result => postMessage("SYNC", {role: (provideBtn.checked ? 1 : 0), text: result}))
+            .then(result => postMessage("SYNC", {role: (provideBtn.checked ? 1 : 0), text: result.data}))
             .catch(e => generateAlerts(4, e));
         });
 
