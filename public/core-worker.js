@@ -12,9 +12,6 @@ var myKeyPair = {publicKey: null, privateKey: null},
     defaultWsUri = {url: "ws://" + self.location.host, channelId: ""}, 
     limit = 0, maxAge = 0, minDate = 0, dateNow = 0, websockets = [];
 
-minDate = getDateIntByAge(maxAge);
-dateNow = getDateIntByAge(0);
-
 function logerr(err){
     console.log(err);
 }
@@ -222,9 +219,9 @@ function verifyMSG(publicKey, msg, sig){
 /*
 msg format:
 From provider service:
-msgType(1byte) + age(1byte) + pubKeys(array of 20byte hash - similar bitcoin adress)
+age(1byte) + pubKeys(array of 20byte hash - similar bitcoin adress) + sig(array of 64byte)
 From consumer service:
-msgType(1byte) + age(1byte)
+age(1byte)
 */
 function generateAnswer(url, msg){
     let ws = getWSByUrl(url);
@@ -309,7 +306,9 @@ function getWSByUrl(url){
 }
 
 function constructor(){
+    dateNow = getDateIntByAge(0);
     getSettings(function(params){
+        let keyPair;
         limit = params.limit, maxAge = params.maxAge;
         if(!params.maxAge || params.maxAge === 0){
             maxAge = 30;
@@ -323,7 +322,6 @@ function constructor(){
         }else{
             postMessage("SETTINGS", { param: "limit", value: limit });
         }
-        let keyPair;
         try {
             keyPair = bitcoinjs.ECPair.fromPrivateKey(bitcoinjs.Buffer.from(params.privateKey));
             myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};           
@@ -338,7 +336,7 @@ function constructor(){
 
         minDate = getDateIntByAge(maxAge);
         defaultWsUri.channelId = myKeyPair.publicKey.toString('hex');
-
+        
         //test_load();
         deleteOldKeys();
         getStat(function(res){
@@ -378,7 +376,7 @@ function updateSettings(params){
 function getSettings(f){
     let result = {};
     connectDB(function(db){
-        const tx = db.transaction([objectStores.settings], "readwrite");
+        const tx = db.transaction([objectStores.settings], "readonly");
         tx.onerror = logerr;
         let request = tx.objectStore(objectStores.settings).openCursor();
         request.onerror = logerr;
@@ -416,7 +414,11 @@ function genQRString(value){
     key = bitcoinjs.ECPair.fromPrivateKey(myKeyPair.privateKey);
     let recipientQR = myKeyPair.publicKey.toString('hex') + " " + key.sign(dagest).toString('hex');
     let privateKey = value.toString('hex');
-    return {providerQR: providerQR, recipientQR: recipientQR, privateKey: privateKey};
+    return {
+        providerQR: providerQR, 
+        recipientQR: recipientQR, 
+        privateKey: privateKey
+    };
 }
 
 /* tests:
