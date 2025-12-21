@@ -323,6 +323,7 @@
     }
 
     function setScanResult(result){
+        stopScaner();
         generateQrCode(); 
         postMessage("SYNC", {role: (provideBtn.checked ? 1 : 0), text: result.data})
     }
@@ -330,7 +331,33 @@
     function stopScaner(){
         if (scanner){
             scanner.stop();
+            scanner = null;
+            scanBtn.textContent = "Scan partner qr-code";
         }
+    }
+
+    function startScaner(){
+        QrCodeContainer.innerHTML = `<video id="qr-video"></video>`;
+        const video = document.getElementById('qr-video'),
+            scanner = new QrScanner(video, result => setScanResult(result), {
+                onDecodeError: error => {
+                    generateAlerts(4, error);
+                },
+                highlightScanRegion: true,
+                highlightCodeOutline: true,
+            });
+        scanner.start();
+        scanBtn.textContent = "Stop scan partner qr-code"; 
+    }
+
+    function switchScaner(){
+         if (ScanSwitch.checked){
+            if (scanner){
+                stopScaner();
+            }else{
+                startScaner();
+            }
+         }
     }
 
     if (!'serviceWorker' in navigator || !window.isSecureContext) {
@@ -374,16 +401,7 @@
 
         scanBtn.addEventListener("click", function () {
             if (ScanSwitch.checked){
-                QrCodeContainer.innerHTML = `<video id="qr-video"></video>`;
-                const video = document.getElementById('qr-video'),
-                    scanner = new QrScanner(video, result => setScanResult(result), {
-                        onDecodeError: error => {
-                            generateAlerts(4, error);
-                        },
-                        highlightScanRegion: true,
-                        highlightCodeOutline: true,
-                    });
-                scanner.start();
+                switchScaner();
             }else{
                 fileinput.click();
             }
