@@ -12,28 +12,9 @@ var myKeyPair = {publicKey: null, privateKey: null},
     defaultWsUri = {url: "ws://" + self.location.host, channelId: null}, 
     limit = 0, maxAge = 0, minDate = 0, dateNow = 0, websockets = [];
 
-function logerr(err){
-    console.log(err);
-}
+constructor();
 
-function postMessage(type, data){
-    self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-            client.postMessage({ type: type, data: data });
-        });
-    });
-}
-
-function getDateIntByAge(age){
-    const today = new Date(),
-        pastDate = new Date(today);
-    pastDate.setDate(today.getDate() - age);
-    let year = pastDate.getFullYear(), 
-        month = pastDate.getMonth() + 1, 
-        day = pastDate.getDate();
-    return (year * 10000) + (month * 100) + day;
-}
-
+//db:
 function connectDB(f){
     var request = indexedDB.open(baseName, 1);
     request.onerror = logerr;
@@ -50,6 +31,41 @@ function connectDB(f){
 
         connectDB(f);
     }
+}
+
+function getSettings(f){
+    let result = {};
+    connectDB(function(db){
+        const tx = db.transaction([objectStores.settings], "readonly");
+        tx.onerror = logerr;
+        let request = tx.objectStore(objectStores.settings).openCursor();
+        request.onerror = logerr;
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if(cursor){
+                result[cursor.value.param] = cursor.value.value;
+                cursor.continue();
+            }else{
+                f(result);
+            }
+        };
+    });
+}
+
+function setSettings(param, value){
+    connectDB(function(db){
+        const tx = db.transaction([objectStores.settings], "readwrite");
+        tx.onerror = logerr;
+        let request = tx.objectStore(objectStores.settings).put({ param: param, value: value });
+        request.onerror = logerr;
+        request.onsuccess = (event) => {
+            if(param === "privateKey"){
+                postMessage("SETTINGS", { param: param, value: genQRString(value)});
+            }else{
+                postMessage("SETTINGS", { param: param, value: value });
+            }
+        };
+    });
 }
 
 function getRandomIntInclusive(date, f) {
@@ -204,20 +220,84 @@ function deleteOldKeys(){
     });
 }
 
-function signMSG(msg){
-    let hashMSG = bitcoinjs.crypto.hash256(msg); 
-    let key = bitcoinjs.ECPair.fromPrivateKey(myKeyPair.privateKey);
-    return key.sign(hashMSG);
+//bl:
+function constructor(){
+    dateNow = getDateIntByAge(0);
+    getSettings(function(params){
+        let keyPair;
+        limit = params.limit, maxAge = params.maxAge;
+        if(!params.maxAge || params.maxAge === 0){
+            maxAge = 30;
+            setSettings("maxAge", maxAge);
+        }else{
+            postMessage("SETTINGS", { param: "maxAge", value: maxAge });
+        }
+        if(!params.limit || params.limit === 0){
+            limit = 100000;
+            setSettings("limit", limit);
+        }else{
+            postMessage("SETTINGS", { param: "limit", value: limit });
+        }
+        try {
+            keyPair = bitcoinjs.ECPair.fromPrivateKey(bitcoinjs.Buffer.from(params.privateKey));
+            myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};           
+            if(keyPair){
+                postMessage("SETTINGS", { param: "privateKey", value: genQRString(myKeyPair.privateKey) });
+            }
+        }catch(error) {
+            keyPair = bitcoinjs.ECPair.makeRandom();
+            myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};
+            setSettings("privateKey", myKeyPair.privateKey);
+        }
+
+        minDate = getDateIntByAge(maxAge);
+        defaultWsUri.channelId = myKeyPair.publicKey.toString('hex');
+        
+        //test_load();
+        deleteOldKeys();
+        getStat(function(res){
+            postMessage("NETSTAT", res);
+        });
+        sendTo(defaultWsUri.url, defaultWsUri.channelId);
+    });
 }
 
-function verifyMSG(publicKey, msg, sig){
-    let hashMSG = bitcoinjs.crypto.hash256(msg);
-    let key = bitcoinjs.ECPair.fromPublicKey(publicKey);
-    return key.verify(hashMSG, sig);
+function postMessage(type, data){
+    self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+            client.postMessage({ type: type, data: data });
+        });
+    });
 }
 
-/*
-msg format:
+function updateSettings(params){
+    if(params){
+        if(typeof params.maxAge !== "undefined"){
+            maxAge = (Number(params.maxAge) > 0 ? Number(params.maxAge) : 30);
+            minDate = getDateIntByAge(maxAge);
+            setSettings("maxAge", maxAge);
+        }
+        if(typeof params.limit !== "undefined"){
+            limit = (Number(params.limit) > 0 ? Number(params.limit) : 100000);
+            setSettings("limit", limit);
+        }
+        if(typeof params.privateKey !== "undefined"){
+            let keyPair;
+            try {
+                keyPair = bitcoinjs.ECPair.fromPrivateKey(bitcoinjs.Buffer.from(params.privateKey, 'hex'));
+                myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};
+            }catch(error) {
+                keyPair = bitcoinjs.ECPair.makeRandom();
+                myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};
+            }
+            setSettings("privateKey", myKeyPair.privateKey);
+        }
+    }else{
+        constructor();
+    }
+}
+
+/*msg format:
 From provider service:
 age(1byte) + pubKeys(array of 20byte hash - similar bitcoin adress) + sig(array of 64byte)
 From consumer service:
@@ -305,109 +385,6 @@ function getWSByUrl(url){
     return websockets.find(item => item.url === url);
 }
 
-function constructor(){
-    dateNow = getDateIntByAge(0);
-    getSettings(function(params){
-        let keyPair;
-        limit = params.limit, maxAge = params.maxAge;
-        if(!params.maxAge || params.maxAge === 0){
-            maxAge = 30;
-            setSettings("maxAge", maxAge);
-        }else{
-            postMessage("SETTINGS", { param: "maxAge", value: maxAge });
-        }
-        if(!params.limit || params.limit === 0){
-            limit = 100000;
-            setSettings("limit", limit);
-        }else{
-            postMessage("SETTINGS", { param: "limit", value: limit });
-        }
-        try {
-            keyPair = bitcoinjs.ECPair.fromPrivateKey(bitcoinjs.Buffer.from(params.privateKey));
-            myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};           
-            if(keyPair){
-                postMessage("SETTINGS", { param: "privateKey", value: genQRString(myKeyPair.privateKey) });
-            }
-        }catch(error) {
-            keyPair = bitcoinjs.ECPair.makeRandom();
-            myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};
-            setSettings("privateKey", myKeyPair.privateKey);
-        }
-
-        minDate = getDateIntByAge(maxAge);
-        defaultWsUri.channelId = myKeyPair.publicKey.toString('hex');
-        
-        //test_load();
-        deleteOldKeys();
-        getStat(function(res){
-            postMessage("NETSTAT", res);
-        });
-        sendTo(defaultWsUri.url, defaultWsUri.channelId);
-    });
-}
-
-function updateSettings(params){
-    if(params){
-        if(typeof params.maxAge !== "undefined"){
-            maxAge = (Number(params.maxAge) > 0 ? Number(params.maxAge) : 30);
-            minDate = getDateIntByAge(maxAge);
-            setSettings("maxAge", maxAge);
-        }
-        if(typeof params.limit !== "undefined"){
-            limit = (Number(params.limit) > 0 ? Number(params.limit) : 100000);
-            setSettings("limit", limit);
-        }
-        if(typeof params.privateKey !== "undefined"){
-            let keyPair;
-            try {
-                keyPair = bitcoinjs.ECPair.fromPrivateKey(bitcoinjs.Buffer.from(params.privateKey, 'hex'));
-                myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};
-            }catch(error) {
-                keyPair = bitcoinjs.ECPair.makeRandom();
-                myKeyPair = {publicKey: bitcoinjs.Buffer.from(keyPair.publicKey), privateKey: bitcoinjs.Buffer.from(keyPair.privateKey)};
-            }
-            setSettings("privateKey", myKeyPair.privateKey);
-        }
-    }else{
-        constructor();
-    }
-}
-
-function getSettings(f){
-    let result = {};
-    connectDB(function(db){
-        const tx = db.transaction([objectStores.settings], "readonly");
-        tx.onerror = logerr;
-        let request = tx.objectStore(objectStores.settings).openCursor();
-        request.onerror = logerr;
-        request.onsuccess = (event) => {
-            const cursor = event.target.result;
-            if(cursor){
-                result[cursor.value.param] = cursor.value.value;
-                cursor.continue();
-            }else{
-                f(result);
-            }
-        };
-    });
-}
-
-function setSettings(param, value){
-    connectDB(function(db){
-        const tx = db.transaction([objectStores.settings], "readwrite");
-        tx.onerror = logerr;
-        let request = tx.objectStore(objectStores.settings).put({ param: param, value: value });
-        request.onerror = logerr;
-        request.onsuccess = (event) => {
-            if(param === "privateKey"){
-                postMessage("SETTINGS", { param: param, value: genQRString(value)});
-            }else{
-                postMessage("SETTINGS", { param: param, value: value });
-            }
-        };
-    });
-}
-
 function genQRString(value){
     let providerQR = myKeyPair.publicKey.toString('hex') + " ws://" + self.location.host
     let dagest = bitcoinjs.crypto.hash256(myKeyPair.publicKey),
@@ -421,30 +398,34 @@ function genQRString(value){
     };
 }
 
-/* tests:
- 
-//sign
-signMSG("hello world", function(publicKey, msg, sig){
-    let res = verifyMSG(publicKey, msg, sig);
-    logerr(res);
-});
-
-//db load
-*/
-function test_load(){
-    for (step = 0; step < maxAge; step++) {
-        let date = getDateIntByAge(step);
-        let arr = [];
-        let maxCount = Math.random() * (10000 - 1) + 1;
-        for (s = 0; s < maxCount; s++) {
-            let keyPair = bitcoinjs.ECPair.makeRandom();
-            let hash = bitcoinjs.crypto.hash160(keyPair.publicKey);
-            arr.push(hash);
-        }
-        insertPubKeys(arr, date);
-    }
+//utils:
+function logerr(err){
+    console.log(err);
 }
 
+function getDateIntByAge(age){
+    const today = new Date(),
+        pastDate = new Date(today);
+    pastDate.setDate(today.getDate() - age);
+    let year = pastDate.getFullYear(), 
+        month = pastDate.getMonth() + 1, 
+        day = pastDate.getDate();
+    return (year * 10000) + (month * 100) + day;
+}
+
+function signMSG(msg){
+    let hashMSG = bitcoinjs.crypto.hash256(msg); 
+    let key = bitcoinjs.ECPair.fromPrivateKey(myKeyPair.privateKey);
+    return key.sign(hashMSG);
+}
+
+function verifyMSG(publicKey, msg, sig){
+    let hashMSG = bitcoinjs.crypto.hash256(msg);
+    let key = bitcoinjs.ECPair.fromPublicKey(publicKey);
+    return key.verify(hashMSG, sig);
+}
+
+//events:
 self.addEventListener('message', event => {
     if (event.data) {
         let data = event.data.data;
@@ -486,4 +467,26 @@ self.addEventListener("activate", (event) => {
     event.waitUntil(clients.claim());
 });
 
-constructor();
+/* tests:
+ 
+//sign
+signMSG("hello world", function(publicKey, msg, sig){
+    let res = verifyMSG(publicKey, msg, sig);
+    logerr(res);
+});
+
+//db load
+*/
+function test_load(){
+    for (step = 0; step < maxAge; step++) {
+        let date = getDateIntByAge(step);
+        let arr = [];
+        let maxCount = Math.random() * (10000 - 1) + 1;
+        for (s = 0; s < maxCount; s++) {
+            let keyPair = bitcoinjs.ECPair.makeRandom();
+            let hash = bitcoinjs.crypto.hash160(keyPair.publicKey);
+            arr.push(hash);
+        }
+        insertPubKeys(arr, date);
+    }
+}
